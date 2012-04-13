@@ -412,6 +412,7 @@ class PasService {
 			$assignment = new PasAssignment();
 			$assignment->external_id = $rm_patient_no;
 			$assignment->external_type = 'PAS_Patient';
+			$assignment->internal_type = 'Patient';
 			$this->updatePatientFromPas($patient, $assignment);
 		}
 		return $assignment;
