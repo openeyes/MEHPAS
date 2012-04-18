@@ -2,10 +2,10 @@
 return array(
 		'commandMap' => array(
 				'populatepasassignment' => array(
-						'class' => 'ext.mehpas.components.PopulatePasAssignmentCommand',
+						'class' => 'application.modules.mehpas.components.PopulatePasAssignmentCommand',
 				),
 				'verifypasassignment' => array(
-						'class' => 'ext.mehpas.components.VerifyPasAssignmentCommand',
+						'class' => 'application.modules.mehpas.components.VerifyPasAssignmentCommand',
 				),
 		),
 );

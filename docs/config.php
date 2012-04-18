@@ -1,9 +1,9 @@
 <?php
 return array(
 		'import' => array(
-				'ext.mehpas.*',
-				'ext.mehpas.components.*',
-				'ext.mehpas.models.*',
+				'application.modules.mehpas.*',
+				'application.modules.mehpas.components.*',
+				'application.modules.mehpas.models.*',
 		),
 		'components' => array(
 				'event' => array(
