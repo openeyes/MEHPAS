@@ -62,12 +62,8 @@ class PasObserver {
 	public function searchPas($params) {
 		$pas_service = new PasService();
 		if($pas_service->available) {
-			$data = array();
-			foreach(array('first_name','last_name','hos_num') as $param) {
-				$data[$param] = $params['patient']->$param;
-			}
-			$data['sortBy'] = $params['params']['sortBy'];
-			$data['sortDir'] = $params['params']['sortDir'];
+			$data = $params['params'];
+			$data['hos_num'] = $params['patient']->hos_num;
 			$params['criteria'] = $pas_service->search($data, $params['params']['pageSize'], $params['params']['currentPage']);
 		} else {
 			$pas_service->flashPasDown();
