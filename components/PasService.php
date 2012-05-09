@@ -430,6 +430,7 @@ class PasService {
 		$city = '';
 		$county = '';
 		$postcode = '';
+		$town = '';
 
 		$propertyName = empty($data->PROPERTY_NAME) ? '' : trim($data->PROPERTY_NAME);
 		$propertyNumber = empty($data->PROPERTY_NO) ? '' : trim($data->PROPERTY_NO);
