@@ -5,10 +5,14 @@ class PasObserver {
 	 * Update patient from PAS
 	 * @param array $params
 	 */
-	public function updatePatientFromPas($params) {
+	public function updatePatientFromPas($params) {	
+		$patient = $params['patient'];
+		if(!$patient->use_pas){
+			return;
+		}
+
 		$pas_service = new PasService();
 		if ($pas_service->available) {
-			$patient = $params['patient'];
 			$assignment = PasAssignment::model()->findByInternal('Patient', $patient->id);
 			if($assignment->isStale()) {
 				Yii::log('Patient details stale', 'trace');
