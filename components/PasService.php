@@ -51,7 +51,7 @@ class PasService {
 			Yii::app()->user->setFlash('warning.pas_unavailable', 'PAS is not available');
 		}
 	}
-	
+
 	/**
 	 * Check to see if a GP ID (obj_prof) is on our block list
 	 * @param string $gp_id
@@ -78,6 +78,8 @@ class PasService {
 			// Contact
 			if(!$contact = $gp->contact) {
 				$contact = new Contact();
+				$contact->parent_id = $gp->id;
+				$contact->parent_class = 'Gp';
 			}
 			$contact->first_name = trim($pas_gp->FN1 . ' ' . $pas_gp->FN2);
 			$contact->last_name = $pas_gp->SN;
@@ -100,7 +102,6 @@ class PasService {
 			$contact->save();
 			$address->parent_id = $contact->id;
 			$address->save();
-			$gp->contact_id = $contact->id;
 			$gp->save();
 			$assignment->internal_id = $gp->id;
 			$assignment->save();
@@ -124,9 +125,6 @@ class PasService {
 		if($pas_patient = $assignment->external) {
 			Yii::log('Found patient in PAS rm_patient_no:'.$pas_patient->RM_PATIENT_NO, 'trace');
 			$patient_attrs = array(
-					'title' => $pas_patient->name->TITLE,
-					'first_name' => ($pas_patient->name->NAME1) ? $pas_patient->name->NAME1 : '(UNKNOWN)',
-					'last_name'=> $pas_patient->name->SURNAME_ID,
 					'gender' =>$pas_patient->SEX,
 					'dob' => $pas_patient->DATE_OF_BIRTH,
 					'date_of_death' => $pas_patient->DATE_OF_DEATH,
@@ -138,11 +136,6 @@ class PasService {
 			}
 			if($nhs_number = $pas_patient->nhs_number) {
 				$patient_attrs['nhs_num'] = $nhs_number->NUMBER_ID;
-			}
-
-			// Get primary phone from patient's main address
-			if($pas_patient->address) {
-				$patient_attrs['primary_phone'] = $pas_patient->address->TEL_NO;
 			}
 
 			$patient->attributes = $patient_attrs;
@@ -181,8 +174,20 @@ class PasService {
 				Yii::log('Patient has no GP in PAS', 'info');
 			}
 
+			if (!$contact = $patient->contact) {
+				$contact = new Contact;
+				$contact->title = $pas_patient->name->TITLE;
+				$contact->first_name = ($pas_patient->name->NAME1) ? $pas_patient->name->NAME1 : '(UNKNOWN)';
+				$contact->last_name = $pas_patient->name->SURNAME_ID;
+			}
+
 			// Save
 			$patient->save();
+
+			$contact->parent_id = $patient->id;
+			$contact->parent_class = 'Patient';
+			$contact->save();
+
 			$assignment->internal_id = $patient->id;
 			$assignment->save();
 
@@ -429,8 +434,8 @@ class PasService {
 		$address2 = '';
 		$city = '';
 		$county = '';
-		$postcode = '';
-		$town = '';
+    $postcode = '';
+    $town = '';
 
 		$propertyName = empty($data->PROPERTY_NAME) ? '' : trim($data->PROPERTY_NAME);
 		$propertyNumber = empty($data->PROPERTY_NO) ? '' : trim($data->PROPERTY_NO);
