@@ -47,6 +47,7 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 		->from('gp')
 		->leftJoin('pas_assignment', "pas_assignment.internal_id = gp.id AND pas_assignment.internal_type = 'Gp'")
 		->where('pas_assignment.id IS NULL')
+		->order('gp.last_modified_date DESC')
 		->queryAll();
 
 		echo "There are ".count($gps)." gps without an assignment, processing...\n";
@@ -70,7 +71,7 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 			->queryScalar();
 			if(!$patient) {
 				// GP is not being used, let's delete it!
-				echo "Deleting unused GP\n";
+				echo "Deleting unused GP (obj_prof $obj_prof, id $gp_id)\n";
 				$results['removed']++;
 				Gp::model()->deleteByPk($gp_id);
 				continue;
