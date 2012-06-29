@@ -57,7 +57,9 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 				'removed' => 0,
 				'duplicates' => 0,
 				'skipped' => 0,
+				'conflicted' => 0,
 		);
+
 		foreach($gps as $gp) {
 
 			$obj_prof = $gp['obj_prof'];
@@ -108,13 +110,34 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 			if(count($pas_gps) > 0) {
 				// Found a match
 				Yii::log("Found match in PAS for obj_prof $obj_prof, creating assignment", 'trace');
-				$assignment = new PasAssignment();
-				$assignment->external_id = $obj_prof;
-				$assignment->external_type = 'PAS_Gp';
-				$assignment->internal_id = $gp_id;
-				$assignment->internal_type = 'Gp';
-				$assignment->save();
-				$results['updated']++;
+
+				if ($assignment = PasAssignment::model()->find('internal_id=? and internal_type=?',array($gp_id,'Gp'))) {
+					if ($assignment->external_id != $obj_prof || $assignment->external_type != 'PAS_Gp') {
+						echo "Conflist in pas_assignment:\n\n";
+						echo "Wanted to insert:\n\n";
+						echo "external_id : $obj_prof\n";
+						echo "external_type : PAS_Gp\n";
+						echo "internal_id : $gp_id\n";
+						echo "internal_type : Gp\n\n";
+						echo "But this already exists:\n\n";
+						echo "external_id : $assignment->external_id\n";
+						echo "external_type : $assignment->external_type\n";
+						echo "internal_id : $assignment->internal_id\n";
+						echo "internal_type : $assignment->internal_type\n\n";
+
+						$results['conflicted']++;
+					} else {
+						$results['skipped']++;
+					}
+				} else {
+					$assignment = new PasAssignment();
+					$assignment->external_id = $obj_prof;
+					$assignment->external_type = 'PAS_Gp';
+					$assignment->internal_id = $gp_id;
+					$assignment->internal_type = 'Gp';
+					$assignment->save();
+					$results['updated']++;
+				}
 			} else {
 				// No match, let's check to see if patients using this gp are stale
 				$stale_patients = Patient::model()->findAllByAttributes(array('gp_id' => $gp_id));
@@ -140,6 +163,7 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 		echo " - Updated: ".$results['updated']."\n";
 		echo " - Removed: ".$results['removed']."\n";
 		echo " - Duplicates: ".$results['duplicates']."\n";
+		echo " - Conflicts: ".$results['conflicted']."\n";
 		echo " - Skipped: ".$results['skipped']."\n";
 		echo "Done.\n";
 	}
