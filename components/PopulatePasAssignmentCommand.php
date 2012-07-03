@@ -200,13 +200,23 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 			if(count($patient_no) == 1) {
 				// Found a single match
 				Yii::log("Found match in PAS for hos_num $hos_num, creating assignment", 'trace');
-				$assignment = new PasAssignment();
-				$assignment->external_id = $patient_no[0]->RM_PATIENT_NO;
-				$assignment->external_type = 'PAS_Patient';
-				$assignment->internal_id = $patient['id'];
-				$assignment->internal_type = 'Patient';
-				$assignment->save();
-				$results['updated']++;
+				if ($assignment = PasAssignment::model()->find('internal_type=? and internal_id=?',array('Patient',$patient['id']))) {
+					if ($assignment->external_type != 'PAS_Patient' || $assignment->external_id != $patient_no[0]->RM_PATIENT_NO) {
+						throw new CException("Conflicting pas_assignment for internal_type=Patient internal_id={$patient['id']}: wanted to insert external_type=PAS_Patient external_id={$patient_no[0]->RM_PATIENT_NO} but already have external_type=PAS_Patient external_id={$assignment->external_id}");
+					}
+				} else if ($assignment = PasAssignment::model()->find('external_type=? and external_id=?',array('PAS_Patient',$patient_no[0]->RM_PATIENT_NO))) {
+					if ($assignment->internal_type != 'Patient' || $assignment->internal_id != $patient['id']) {
+						throw new CException("Conflicting pas_assignment for external_type=PAS_Patient external_id={$patient_no[0]->RM_PATIENT_NO}: wanted to insert internal_type=Patient internal_id={$patient['id']} but already have internal_type=Patient internal_id={$assignment->internal_id}");
+					}
+				} else {
+					$assignment = new PasAssignment();
+					$assignment->external_id = $patient_no[0]->RM_PATIENT_NO;
+					$assignment->external_type = 'PAS_Patient';
+					$assignment->internal_id = $patient['id'];
+					$assignment->internal_type = 'Patient';
+					$assignment->save();
+					$results['updated']++;
+				}
 			} else if(count($patient_no) > 1) {
 				// Found more than one match
 				echo "Found more than one match in PAS for hos_num $hos_num, cannot create assignment\n";
