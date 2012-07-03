@@ -138,6 +138,11 @@ class PasService {
 				$patient_attrs['nhs_num'] = $nhs_number->NUMBER_ID;
 			}
 
+			// Get primary phone from patient's main address
+			if($pas_patient->address) {
+				$patient_attrs['primary_phone'] = $pas_patient->address->TEL_NO;
+			}
+
 			$patient->attributes = $patient_attrs;
 
 			// Get latest GP mapping from PAS

@@ -13,8 +13,12 @@ class PasObserver {
 
 		$pas_service = new PasService();
 		if ($pas_service->available) {
-			$assignment = PasAssignment::model()->findByInternal('Patient', $patient->id);
-			if($assignment->isStale()) {
+			if (!$assignment = PasAssignment::model()->findByInternal('Patient', $patient->id)) {
+				Yii::app()->getController()->render('/error/errorPAS');
+				Yii::app()->end();
+			}
+
+			if ($assignment->isStale()) {
 				Yii::log('Patient details stale', 'trace');
 				$pas_service->updatePatientFromPas($patient, $assignment);
 			}
@@ -88,5 +92,4 @@ class PasObserver {
 			$pas_service->flashPasDown();
 		}
 	}
-	
 }
