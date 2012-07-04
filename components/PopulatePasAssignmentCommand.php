@@ -47,6 +47,7 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 		->from('gp')
 		->leftJoin('pas_assignment', "pas_assignment.internal_id = gp.id AND pas_assignment.internal_type = 'Gp'")
 		->where('pas_assignment.id IS NULL')
+		->order('gp.last_modified_date DESC')
 		->queryAll();
 
 		echo "There are ".count($gps)." gps without an assignment, processing...\n";
@@ -56,7 +57,9 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 				'removed' => 0,
 				'duplicates' => 0,
 				'skipped' => 0,
+				'conflicted' => 0,
 		);
+
 		foreach($gps as $gp) {
 
 			$obj_prof = $gp['obj_prof'];
@@ -70,7 +73,7 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 			->queryScalar();
 			if(!$patient) {
 				// GP is not being used, let's delete it!
-				echo "Deleting unused GP\n";
+				echo "Deleting unused GP (obj_prof $obj_prof, id $gp_id)\n";
 				$results['removed']++;
 				Gp::model()->deleteByPk($gp_id);
 				continue;
@@ -107,13 +110,34 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 			if(count($pas_gps) > 0) {
 				// Found a match
 				Yii::log("Found match in PAS for obj_prof $obj_prof, creating assignment", 'trace');
-				$assignment = new PasAssignment();
-				$assignment->external_id = $obj_prof;
-				$assignment->external_type = 'PAS_Gp';
-				$assignment->internal_id = $gp_id;
-				$assignment->internal_type = 'Gp';
-				$assignment->save();
-				$results['updated']++;
+
+				if ($assignment = PasAssignment::model()->find('internal_id=? and internal_type=?',array($gp_id,'Gp'))) {
+					if ($assignment->external_id != $obj_prof || $assignment->external_type != 'PAS_Gp') {
+						echo "Conflist in pas_assignment:\n\n";
+						echo "Wanted to insert:\n\n";
+						echo "external_id : $obj_prof\n";
+						echo "external_type : PAS_Gp\n";
+						echo "internal_id : $gp_id\n";
+						echo "internal_type : Gp\n\n";
+						echo "But this already exists:\n\n";
+						echo "external_id : $assignment->external_id\n";
+						echo "external_type : $assignment->external_type\n";
+						echo "internal_id : $assignment->internal_id\n";
+						echo "internal_type : $assignment->internal_type\n\n";
+
+						$results['conflicted']++;
+					} else {
+						$results['skipped']++;
+					}
+				} else {
+					$assignment = new PasAssignment();
+					$assignment->external_id = $obj_prof;
+					$assignment->external_type = 'PAS_Gp';
+					$assignment->internal_id = $gp_id;
+					$assignment->internal_type = 'Gp';
+					$assignment->save();
+					$results['updated']++;
+				}
 			} else {
 				// No match, let's check to see if patients using this gp are stale
 				$stale_patients = Patient::model()->findAllByAttributes(array('gp_id' => $gp_id));
@@ -139,6 +163,7 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 		echo " - Updated: ".$results['updated']."\n";
 		echo " - Removed: ".$results['removed']."\n";
 		echo " - Duplicates: ".$results['duplicates']."\n";
+		echo " - Conflicts: ".$results['conflicted']."\n";
 		echo " - Skipped: ".$results['skipped']."\n";
 		echo "Done.\n";
 	}
@@ -175,13 +200,23 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 			if(count($patient_no) == 1) {
 				// Found a single match
 				Yii::log("Found match in PAS for hos_num $hos_num, creating assignment", 'trace');
-				$assignment = new PasAssignment();
-				$assignment->external_id = $patient_no[0]->RM_PATIENT_NO;
-				$assignment->external_type = 'PAS_Patient';
-				$assignment->internal_id = $patient['id'];
-				$assignment->internal_type = 'Patient';
-				$assignment->save();
-				$results['updated']++;
+				if ($assignment = PasAssignment::model()->find('internal_type=? and internal_id=?',array('Patient',$patient['id']))) {
+					if ($assignment->external_type != 'PAS_Patient' || $assignment->external_id != $patient_no[0]->RM_PATIENT_NO) {
+						throw new CException("Conflicting pas_assignment for internal_type=Patient internal_id={$patient['id']}: wanted to insert external_type=PAS_Patient external_id={$patient_no[0]->RM_PATIENT_NO} but already have external_type=PAS_Patient external_id={$assignment->external_id}");
+					}
+				} else if ($assignment = PasAssignment::model()->find('external_type=? and external_id=?',array('PAS_Patient',$patient_no[0]->RM_PATIENT_NO))) {
+					if ($assignment->internal_type != 'Patient' || $assignment->internal_id != $patient['id']) {
+						throw new CException("Conflicting pas_assignment for external_type=PAS_Patient external_id={$patient_no[0]->RM_PATIENT_NO}: wanted to insert internal_type=Patient internal_id={$patient['id']} but already have internal_type=Patient internal_id={$assignment->internal_id}");
+					}
+				} else {
+					$assignment = new PasAssignment();
+					$assignment->external_id = $patient_no[0]->RM_PATIENT_NO;
+					$assignment->external_type = 'PAS_Patient';
+					$assignment->internal_id = $patient['id'];
+					$assignment->internal_type = 'Patient';
+					$assignment->save();
+					$results['updated']++;
+				}
 			} else if(count($patient_no) > 1) {
 				// Found more than one match
 				echo "Found more than one match in PAS for hos_num $hos_num, cannot create assignment\n";
