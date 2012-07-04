@@ -74,6 +74,7 @@ class PasService {
 		if($pas_gp = $assignment->external) {
 			Yii::log('Found GP in PAS obj_prof:'.$pas_gp->OBJ_PROF, 'trace');
 			$gp->nat_id = $pas_gp->NAT_ID;
+			$gp->obj_prof = $pas_gp->OBJ_PROF;
 
 			// Contact
 			if(!$contact = $gp->contact) {
