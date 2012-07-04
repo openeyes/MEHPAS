@@ -74,6 +74,7 @@ class PasService {
 		if($pas_gp = $assignment->external) {
 			Yii::log('Found GP in PAS obj_prof:'.$pas_gp->OBJ_PROF, 'trace');
 			$gp->nat_id = $pas_gp->NAT_ID;
+			$gp->obj_prof = $pas_gp->OBJ_PROF;
 
 			// Contact
 			if(!$contact = $gp->contact) {
@@ -136,6 +137,11 @@ class PasService {
 			}
 			if($nhs_number = $pas_patient->nhs_number) {
 				$patient_attrs['nhs_num'] = $nhs_number->NUMBER_ID;
+			}
+
+			// Get primary phone from patient's main address
+			if($pas_patient->address) {
+				$patient_attrs['primary_phone'] = $pas_patient->address->TEL_NO;
 			}
 
 			$patient->attributes = $patient_attrs;
@@ -434,8 +440,8 @@ class PasService {
 		$address2 = '';
 		$city = '';
 		$county = '';
-    $postcode = '';
-    $town = '';
+		$postcode = '';
+		$town = '';
 
 		$propertyName = empty($data->PROPERTY_NAME) ? '' : trim($data->PROPERTY_NAME);
 		$propertyNumber = empty($data->PROPERTY_NO) ? '' : trim($data->PROPERTY_NO);
