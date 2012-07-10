@@ -114,14 +114,26 @@ class PasService {
 				Yii::log('GP not found in PAS: '.$gp->id, 'info');
 			}
 		} catch (CDbException $e) {
-			if (preg_match('/end-of-file on communication channel/',@$e->errorInfo[2]) || preg_match('/not connected to ORACLE/',@$e->errorInfo[2])) {
-				$this->available = false;
-				$this->flashPasDown();
-			} else {
-				Yii::app()->getController()->render('/error/error500');
-				Yii::app()->end();
-			}
+			$this->handlePASException($e);
 		}
+	}
+
+	public function handlePASException($e) {
+		$logmsg = "PAS DB exception: ".$e->getMessage()."\n";
+
+		foreach ($e->getTrace() as $i => $item) {
+			if ($i <10) $i = ' '.$i;
+			$logmsg .= $i.'. '.$item['class'].$item['type'].$item['function'].'()';
+			if (isset($item['file']) && isset($item['line'])) {
+				$logmsg .= ' '.$item['file'].':'.$item['line'];
+			}
+			$logmsg .= "\n";
+		}
+
+		Yii::log($logmsg);
+
+		$this->available = false;
+		$this->flashPasDown();
 	}
 
 	/**
@@ -255,13 +267,7 @@ class PasService {
 				Yii::log('Patient not found in PAS: '.$patient->id, 'info');
 			}
 		} catch (CDbException $e) {
-			if (preg_match('/end-of-file on communication channel/',@$e->errorInfo[2]) || preg_match('/not connected to ORACLE/',@$e->errorInfo[2])) {
-				$this->available = false;
-				$this->flashPasDown();
-			} else {
-				Yii::app()->getController()->render('/error/error500');
-				Yii::app()->end();
-			}
+			$this->handlePASException($e);
 		}
 	}
 
@@ -428,13 +434,7 @@ class PasService {
 
 			return $criteria;
 		} catch (CDbException $e) {
-			if (preg_match('/end-of-file on communication channel/',@$e->errorInfo[2]) || preg_match('/not connected to ORACLE/',@$e->errorInfo[2])) {
-				$this->available = false;
-				$this->flashPasDown();
-			} else {
-				Yii::app()->getController()->render('/error/error500');
-				Yii::app()->end();
-			}
+			$this->handlePASException($e);
 		}
 	}
 
