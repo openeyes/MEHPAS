@@ -459,6 +459,11 @@ class PasService {
 			$assignment->external_type = 'PAS_Patient';
 			$assignment->internal_type = 'Patient';
 			$this->updatePatientFromPas($patient, $assignment);
+
+			if (Yii::app()->params['mehpas_legacy_letters']) {
+				Yii::import('application.modules.OphLeEpatientletter.models.*');
+				$this->associateLegacyEvents($patient);
+			}
 		}
 		return $assignment;
 	}
@@ -613,4 +618,26 @@ class PasService {
 
 	}
 
+	public function associateLegacyEvents($patient) {
+		if (Element_OphLeEpatientletter_EpatientLetter::model()->find('epatient_hosnum=?',array($patient->hos_num))) {
+			$episode = new Episode;
+			$episode->patient_id = $patient->id;
+			$episode->firm_id = null;
+			$episode->start_date = date('Y-m-d H:i:s');
+			$episode->end_date = null;
+			$episode->episode_status_id = 1;
+			$episode->legacy = 1;
+			if (!$episode->save()) {
+				throw new Exception('Unable to save new legacy episode: '.print_r($episode->getErrors(),true));
+			}
+
+			foreach (Element_OphLeEpatientletter_EpatientLetter::model()->findAll('epatient_hosnum=?',array($patient->hos_num)) as $letter) {
+				$event = Event::model()->findByPk($letter->event_id);
+				$event->episode_id = $episode->id;
+				if (!$event->save()) {
+					throw new Exception('Unable to associate legacy event with episode: '.print_r($event->getErrors(),true));
+				}
+			}
+		}
+	}
 }
