@@ -123,7 +123,7 @@ class PasService {
 
 		foreach ($e->getTrace() as $i => $item) {
 			if ($i <10) $i = ' '.$i;
-			$logmsg .= $i.'. '.$item['class'].$item['type'].$item['function'].'()';
+			$logmsg .= $i.'. '.@$item['class'].@$item['type'].$item['function'].'()';
 			if (isset($item['file']) && isset($item['line'])) {
 				$logmsg .= ' '.$item['file'].':'.$item['line'];
 			}
@@ -380,13 +380,18 @@ class PasService {
 
 				// See if the patient is in openeyes, if not then fetch from PAS
 				$patient_assignment = $this->findPatientAssignment($result['RM_PATIENT_NO'], $result['NUM_ID_TYPE'] . $result['NUMBER_ID']);
-				$patient = $patient_assignment->internal;
-
-				// Check that patient has an address
-				if($patient->address) {
-					$ids[] = $patient->id;
+				if($patient_assignment) {
+					$patient = $patient_assignment->internal;
+	
+					// Check that patient has an address
+					if($patient->address) {
+						$ids[] = $patient->id;
+					} else {
+						$patients_with_no_address++;
+					}
 				} else {
-					$patients_with_no_address++;
+					// Something went wrong with the assignment, probably a DB error
+					Yii::log("Patient assignment failed for RM_PATIENT_NO " . $result['RM_PATIENT_NO']);
 				}
 
 			}
@@ -460,7 +465,12 @@ class PasService {
 			$assignment->internal_type = 'Patient';
 			$this->updatePatientFromPas($patient, $assignment);
 		}
-		return $assignment;
+		// Only return assignment if it's been fully updated
+		if($assignment->internal) {
+			return $assignment;
+		} else {
+			return null;
+		}
 	}
 
 	/**
