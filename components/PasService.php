@@ -69,7 +69,8 @@ class PasService {
 		if (!$this->available) return;
 
 		try {
-			Yii::log('Pulling data from PAS for gp ID:'.$gp->id, 'trace');
+			$gp_log = ($gp->id) ? $gp->id : 'NEW';
+			Yii::log('Pulling data from PAS for gp ID:'.$gp_log, 'trace');
 			if(!$assignment->external_id) {
 				// Without an external ID we have no way of looking up the gp in PAS
 				throw new CException('GP assignment has no external ID');
@@ -82,7 +83,6 @@ class PasService {
 				// Contact
 				if(!$contact = $gp->contact) {
 					$contact = new Contact();
-					$contact->parent_id = $gp->id;
 					$contact->parent_class = 'Gp';
 				}
 				$contact->first_name = trim($pas_gp->FN1 . ' ' . $pas_gp->FN2);
@@ -103,10 +103,14 @@ class PasService {
 				$address->country_id = 1;
 
 				// Save
+				$gp->save();
+				
+				$contact->parent_id = $gp->id;
 				$contact->save();
+				
 				$address->parent_id = $contact->id;
 				$address->save();
-				$gp->save();
+				
 				$assignment->internal_id = $gp->id;
 				$assignment->save();
 
@@ -145,7 +149,8 @@ class PasService {
 		if (!$this->available) return;
 
 		try {
-			Yii::log('Pulling data from PAS for patient ID:'.$patient->id, 'trace');
+			$patient_log = ($patient->id) ? $patient->id : 'NEW';
+			Yii::log('Pulling data from PAS for patient ID:'.$patient_log, 'trace');
 			if(!$assignment->external_id) {
 				// Without an external ID we have no way of looking up the patient in PAS
 				throw new CException('Patient assignment has no external ID');
