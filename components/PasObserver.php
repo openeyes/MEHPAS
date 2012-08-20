@@ -14,6 +14,11 @@ class PasObserver {
 		$pas_service = new PasService();
 		if ($pas_service->available) {
 			if (!$assignment = PasAssignment::model()->findByInternal('Patient', $patient->id)) {
+				if (get_class(Yii::app()) == 'CConsoleApplication') {
+					echo "Warning: unable to update patient $patient->hos_num from PAS (merged patient)\n";
+					return;
+				}
+
 				Yii::app()->getController()->render('/error/errorPAS');
 				Yii::app()->end();
 			}
