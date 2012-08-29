@@ -631,13 +631,21 @@ class PasService {
 				throw new Exception('Unable to save new legacy episode: '.print_r($episode->getErrors(),true));
 			}
 
+			$earliest = time();
+
 			foreach (Element_OphLeEpatientletter_EpatientLetter::model()->findAll('epatient_hosnum=?',array($patient->hos_num)) as $letter) {
 				$event = Event::model()->findByPk($letter->event_id);
 				$event->episode_id = $episode->id;
 				if (!$event->save()) {
 					throw new Exception('Unable to associate legacy event with episode: '.print_r($event->getErrors(),true));
 				}
+
+				if (strtotime($event->datetime) < $earliest) {
+					$earliest = strtotime($event->datetime);
+				}
 			}
+
+			$episode->start_date = date('Y-m-d H:i:s',$earliest);
 		}
 	}
 }
