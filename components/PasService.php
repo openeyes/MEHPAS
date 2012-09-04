@@ -19,28 +19,25 @@
 
 class PasService {
 
-	public $available = true;
-
-	public function __construct() {
-		$this->available = $this->isAvailable();
-	}
+	protected $available;
 
 	/**
 	 * Is PAS enabled and up?
 	 */
 	public function isAvailable() {
-		if(isset(Yii::app()->params['mehpas_enabled']) && Yii::app()->params['mehpas_enabled'] === true) {
-			try {
-				Yii::log('Checking PAS is available','trace');
-				$connection = Yii::app()->db_pas;
-			} catch (Exception $e) {
-				//Yii::log('PAS is not available: '.$e->getMessage());
-				return false;
+		if(!isset($this->available)) {
+			$this->available = false;
+			if(isset(Yii::app()->params['mehpas_enabled']) && Yii::app()->params['mehpas_enabled'] === true) {
+				try {
+					Yii::log('Checking PAS is available','trace');
+					$connection = Yii::app()->db_pas;
+				} catch (Exception $e) {
+					//Yii::log('PAS is not available: '.$e->getMessage());
+				}
+				$this->available = true;
 			}
-			return true;
-		} else {
-			return false;
 		}
+		return $this->available;
 	}
 
 	/**
@@ -67,7 +64,7 @@ class PasService {
 	 * @param Gp $gp
 	 */
 	public function updateGpFromPas($gp, $assignment) {
-		if (!$this->available) return;
+		if (!$this->isAvailable()) return;
 
 		try {
 			$gp_log = ($gp->id) ? $gp->id : 'NEW';
@@ -147,7 +144,7 @@ class PasService {
 	 * @param PasPatientAssignment $assignment
 	 */
 	public function updatePatientFromPas($patient, $assignment) {
-		if (!$this->available) return;
+		if (!$this->isAvailable()) return;
 
 		try {
 			$patient_log = ($patient->id) ? $patient->id : 'NEW';
