@@ -31,6 +31,7 @@ class PasService {
 	public function isAvailable() {
 		if(isset(Yii::app()->params['mehpas_enabled']) && Yii::app()->params['mehpas_enabled'] === true) {
 			try {
+				Yii::log('Checking PAS is available','trace');
 				$connection = Yii::app()->db_pas;
 			} catch (Exception $e) {
 				//Yii::log('PAS is not available: '.$e->getMessage());
