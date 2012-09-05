@@ -96,7 +96,11 @@ class PasService {
 					$address = new Address();
 					$address->parent_class = 'Contact';
 				}
-				$address->address1 = trim($pas_gp->ADD_NAM . ' ' . $pas_gp->ADD_NUM . ' ' . $pas_gp->ADD_ST);
+				if($pas_gp->ADD_NAM && $pas_gp->ADD_NUM) {
+					$address->address1 = trim($pas_gp->ADD_NAM . "\n" . $pas_gp->ADD_NUM . ' ' . $pas_gp->ADD_ST);
+				} else {
+					$address->address1 = trim($pas_gp->ADD_NAM . ' ' . $pas_gp->ADD_NUM . ' ' . $pas_gp->ADD_ST);
+				}
 				$address->address2 = $pas_gp->ADD_DIS;
 				$address->city = $pas_gp->ADD_TWN;
 				$address->county = $pas_gp->ADD_CTY;
