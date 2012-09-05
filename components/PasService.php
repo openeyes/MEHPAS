@@ -109,13 +109,13 @@ class PasService {
 
 				// Save
 				$gp->save();
-				
+
 				$contact->parent_id = $gp->id;
 				$contact->save();
-				
+
 				$address->parent_id = $contact->id;
 				$address->save();
-				
+
 				$assignment->internal_id = $gp->id;
 				$assignment->save();
 
@@ -392,7 +392,7 @@ class PasService {
 				$patient_assignment = $this->findPatientAssignment($result['RM_PATIENT_NO'], $result['NUM_ID_TYPE'] . $result['NUMBER_ID']);
 				if($patient_assignment) {
 					$patient = $patient_assignment->internal;
-	
+
 					// Check that patient has an address
 					if($patient->address) {
 						$ids[] = $patient->id;
@@ -620,16 +620,35 @@ class PasService {
 		}
 
 		// Store data
-		$address->address1 = $address1;
-		$address->address2 = $address2;
-		$address->city = $town;
-		$address->county = $county;
+		$address->address1 = fixCase($address1);
+		$address->address2 = fixCase($address1);
+		$address->city = fixCase($town);
+		$address->county = fixCase($county);
 		$unitedKingdom = Country::model()->findByAttributes(array('name' => 'United Kingdom'));
 		$address->country_id = $unitedKingdom->id;
-		$address->postcode = $postcode;
+		$address->postcode = strtoupper($postcode);
 		$address->type = $data->ADDR_TYPE;
 		$address->date_start = $data->DATE_START;
 		$address->date_end = $data->DATE_END;
+
+	}
+
+	protected function fixCase($string) {
+		
+		// Basic Title Case to start with
+		$string = ucwords(strtolower($_string));
+
+		// Fix delimited words
+		foreach (array('-', '\'', '.') as $delimiter) {
+			if (strpos($string, $delimiter) !== false) {
+				$string = implode($delimiter, array_map('ucfirst', explode($delimiter, $string)));
+			}
+		}
+
+		// Exception is possessive (i.e. Paul's should not be Paul'S)
+		$string = str_replace('\'S ', '\'s ', $string);
+
+		return $string;
 
 	}
 
