@@ -86,9 +86,9 @@ class PasService {
 					$contact = new Contact();
 					$contact->parent_class = 'Gp';
 				}
-				$contact->first_name = trim($pas_gp->FN1 . ' ' . $pas_gp->FN2);
-				$contact->last_name = $pas_gp->SN;
-				$contact->title = $pas_gp->TITLE;
+				$contact->first_name = $this->fixCase(trim($pas_gp->FN1 . ' ' . $pas_gp->FN2));
+				$contact->last_name = $this->fixCase($pas_gp->SN);
+				$contact->title = $this->fixCase($pas_gp->TITLE);
 				$contact->primary_phone = $pas_gp->TEL_1;
 
 				// Address
@@ -97,14 +97,14 @@ class PasService {
 					$address->parent_class = 'Contact';
 				}
 				if($pas_gp->ADD_NAM && $pas_gp->ADD_NUM) {
-					$address->address1 = trim($pas_gp->ADD_NAM . "\n" . $pas_gp->ADD_NUM . ' ' . $pas_gp->ADD_ST);
+					$address->address1 = $this->fixCase(trim($pas_gp->ADD_NAM . "\n" . $pas_gp->ADD_NUM . ' ' . $pas_gp->ADD_ST));
 				} else {
-					$address->address1 = trim($pas_gp->ADD_NAM . ' ' . $pas_gp->ADD_NUM . ' ' . $pas_gp->ADD_ST);
+					$address->address1 = $this->fixCase(trim($pas_gp->ADD_NAM . ' ' . $pas_gp->ADD_NUM . ' ' . $pas_gp->ADD_ST));
 				}
-				$address->address2 = $pas_gp->ADD_DIS;
-				$address->city = $pas_gp->ADD_TWN;
-				$address->county = $pas_gp->ADD_CTY;
-				$address->postcode = $pas_gp->PC;
+				$address->address2 = $this->fixCase($pas_gp->ADD_DIS);
+				$address->city = $this->fixCase($pas_gp->ADD_TWN);
+				$address->county = $this->fixCase($pas_gp->ADD_CTY);
+				$address->postcode = strtoupper($pas_gp->PC);
 				$address->country_id = 1;
 
 				// Save
@@ -219,16 +219,16 @@ class PasService {
 
 				if (!$contact = $patient->contact) {
 					$contact = new Contact;
-					$contact->title = $pas_patient->name->TITLE;
-					$contact->first_name = ($pas_patient->name->NAME1) ? $pas_patient->name->NAME1 : '(UNKNOWN)';
-					$contact->last_name = $pas_patient->name->SURNAME_ID;
+					$contact->parent_id = $patient->id;
+					$contact->parent_class = 'Patient';
 				}
 
 				// Save
 				$patient->save();
 
-				$contact->parent_id = $patient->id;
-				$contact->parent_class = 'Patient';
+				$contact->title = $this->fixCase($pas_patient->name->TITLE);
+				$contact->first_name = ($pas_patient->name->NAME1) ? $this->fixCase($pas_patient->name->NAME1) : '(UNKNOWN)';
+				$contact->last_name = $this->fixCase($pas_patient->name->SURNAME_ID);
 				$contact->save();
 
 				$assignment->internal_id = $patient->id;
@@ -620,10 +620,10 @@ class PasService {
 		}
 
 		// Store data
-		$address->address1 = fixCase($address1);
-		$address->address2 = fixCase($address1);
-		$address->city = fixCase($town);
-		$address->county = fixCase($county);
+		$address->address1 = $this->fixCase($address1);
+		$address->address2 = $this->fixCase($address2);
+		$address->city = $this->fixCase($town);
+		$address->county = $this->fixCase($county);
 		$unitedKingdom = Country::model()->findByAttributes(array('name' => 'United Kingdom'));
 		$address->country_id = $unitedKingdom->id;
 		$address->postcode = strtoupper($postcode);
@@ -636,7 +636,7 @@ class PasService {
 	protected function fixCase($string) {
 		
 		// Basic Title Case to start with
-		$string = ucwords(strtolower($_string));
+		$string = ucwords(strtolower($string));
 
 		// Fix delimited words
 		foreach (array('-', '\'', '.') as $delimiter) {
