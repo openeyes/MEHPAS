@@ -529,14 +529,13 @@ class PasService {
 			$string = preg_replace('/([0-9])\./', '\1,', $string);
 
 			// That will probably do
-			$address1 = '';
-			if (!empty($propertyName)) {
-				$address1 .= "{$propertyName}, ";
+			$address1 = array();
+			if($propertyName) {
+				$address1[] = trim($propertyName);
 			}
-			if (!empty($propertyNumber)) {
-				$address1 .= "{$propertyNumber}, ";
-			}
-			$address1 .= $string;
+			$address1[] = trim($propertyNumber . ' ' . $string);
+			
+			$address1 = implode("\n", $address1);
 		}
 
 		// Create array of remaining address lines, from last to first
