@@ -96,11 +96,12 @@ class PasService {
 					$address = new Address();
 					$address->parent_class = 'Contact';
 				}
-				if($pas_gp->ADD_NAM && $pas_gp->ADD_NUM) {
-					$address->address1 = $this->fixCase(trim($pas_gp->ADD_NAM . "\n" . $pas_gp->ADD_NUM . ' ' . $pas_gp->ADD_ST));
-				} else {
-					$address->address1 = $this->fixCase(trim($pas_gp->ADD_NAM . ' ' . $pas_gp->ADD_NUM . ' ' . $pas_gp->ADD_ST));
+				$address1 = array();
+				if($pas_gp->ADD_NAM) {
+					$address1[] = $this->fixCase(trim($pas_gp->ADD_NAM));
 				}
+				$address1[] = $this->fixCase(trim($pas_gp->ADD_NUM . ' ' . $pas_gp->ADD_ST));
+				$address->address1 = implode("\n",$address1);
 				$address->address2 = $this->fixCase($pas_gp->ADD_DIS);
 				$address->city = $this->fixCase($pas_gp->ADD_TWN);
 				$address->county = $this->fixCase($pas_gp->ADD_CTY);
