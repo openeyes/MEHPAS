@@ -82,7 +82,7 @@ class PasObserver {
 	 */
 	public function searchPas($params) {
 		$pas_service = new PasService();
-		if($pas_service->available) {
+		if($pas_service->isAvailable()) {
 			$data = $params['params'];
 			$data['hos_num'] = $params['patient']->hos_num;
 			$params['criteria'] = $pas_service->search($data, $params['params']['pageSize'], $params['params']['currentPage']);
