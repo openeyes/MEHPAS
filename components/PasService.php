@@ -217,13 +217,13 @@ class PasService {
 
 				if (!$contact = $patient->contact) {
 					$contact = new Contact;
-					$contact->parent_id = $patient->id;
 					$contact->parent_class = 'Patient';
 				}
 
 				// Save
 				$patient->save();
 
+				$contact->parent_id = $patient->id;
 				$contact->title = $this->fixCase($pas_patient->name->TITLE);
 				$contact->first_name = ($pas_patient->name->NAME1) ? $this->fixCase($pas_patient->name->NAME1) : '(UNKNOWN)';
 				$contact->last_name = $this->fixCase($pas_patient->name->SURNAME_ID);
