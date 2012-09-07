@@ -47,7 +47,7 @@ class PasAssignment extends BaseActiveRecord {
 	 * @var string
 	 */
 	protected $real_last_modified;
-	
+
 	/**
 	 * Returns the static model of the specified AR class.
 	 * @return Phrase the static model class
@@ -151,17 +151,21 @@ class PasAssignment extends BaseActiveRecord {
 		$this->last_modified_date = $this->real_last_modified;
 		$this->save();
 	}
-	
+
 	protected function findAndLockIfStale($condition, $params) {
 		$connection = $this->getDbConnection();
 		$connection->beginTransaction();
-		$assignment = $this->find($condition . ' FOR UPDATE', $params);
+		$command = $connection->createCommand()
+		->select('last_modified_date')
+		->from($this->tableName())
+		->where($condition, $params);
+		$command->setText($command->getText() . ' FOR UPDATE');
+		$modified = $command->queryScalar();
 		$cache_time = (isset(Yii::app()->params['mehpas_cache_time'])) ? Yii::app()->params['mehpas_cache_time'] : self::PAS_CACHE_TIME;
-		if(strtotime($assignment->last_modified_date) < (time() - $cache_time)) {
+		if(strtotime($modified) < (time() - $cache_time)) {
 			// Assignment is stale. Update timestamp to 30 seconds in future to signal to other processes that record is locked
-			$assignment->real_last_modified = $assignment->last_modified_date;
-			$assignment->last_modified_date = date("Y-m-d H:i:s", time() + 30);
-			$assignment->save();
+			$connection->createCommand()->update($this->tableName(), array('last_modified_date' => date("Y-m-d H:i:s", time() + 30)), $condition, $params);
+			$assignment->real_last_modified = $modified;
 		}
 		// TODO: Queue finds where record is locked
 		$connection->commit();
