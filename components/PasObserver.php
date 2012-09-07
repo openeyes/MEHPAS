@@ -5,30 +5,40 @@ class PasObserver {
 	 * Update patient from PAS
 	 * @param array $params
 	 */
-	public function updatePatientFromPas($params) {	
+	public function updatePatientFromPas($params) {
+
+		// Check to see if patient is in "offline" mode
 		$patient = $params['patient'];
 		if(!$patient->use_pas){
 			return;
 		}
 
+		// Check if stale
 		$assignment = PasAssignment::model()->findByInternal('Patient', $patient->id);
-		if (!$assignment) {
-			if (get_class(Yii::app()) == 'CConsoleApplication') {
-				echo "Warning: unable to update patient $patient->hos_num from PAS (merged patient)\n";
-				return;
-			}
+		if($assignment && $assignment->isStale()) {
 
-			Yii::app()->getController()->render('/error/errorPAS');
-			Yii::app()->end();
-		} else if ($assignment->isStale()) {
+			// Assignment is stale (and locked ready for update)
+			Yii::log('Patient details stale', 'trace');
 			$pas_service = new PasService();
 			if ($pas_service->isAvailable()) {
-				Yii::log('Patient details stale', 'trace');
 				$pas_service->updatePatientFromPas($patient, $assignment);
 			} else {
 				$pas_service->flashPasDown();
+				$assignment->unlock();
 			}
+
+		} else if(!$assignment) {
+
+			// Error, missing assignment
+			if (get_class(Yii::app()) == 'CConsoleApplication') {
+				echo "Warning: unable to update patient $patient->hos_num from PAS (merged patient)\n";
+			} else {
+				Yii::app()->getController()->render('/error/errorPAS');
+				Yii::app()->end();
+			}
+
 		}
+
 	}
 
 	/**
@@ -37,37 +47,33 @@ class PasObserver {
 	 */
 	public function updateGpFromPas($params) {
 		$gp = $params['gp'];
+
+		// Check if stale
 		$assignment = PasAssignment::model()->findByInternal('Gp', $gp->id);
-		$pas_service = new PasService();
-		if(!$assignment) {
-			Yii::log('Creating new Gp assignment', 'trace');
+		if($assignment && $assignment->isStale()) {
+
+			// Assignment is stale (and locked ready for update)
+			Yii::log('GP details stale', 'trace');
+			$pas_service = new PasService();
 			if ($pas_service->isAvailable()) {
-				// Assignment doesn't exist yet, try to find PAS gp using obj_prof
-				$obj_prof = $gp->obj_prof;
-				$pas_gp = PAS_Gp::model()->find('obj_prof = :obj_prof', array(
-						':obj_prof' => $obj_prof,
-				));
-				if($pas_gp) {
-					$assignment = new PasAssignment();
-					$assignment->internal_id = $gp->id;
-					$assignment->internal_type = 'Gp';
-					$assignment->external_id = $pas_gp->OBJ_PROF;
-					$assignment->external_type = 'PAS_Gp';
-				} else {
-					throw new CException('Cannot map gp');
-					// @TODO Push an alert that the patient cannot be mapped
-				}
-			} else {
-				$pas_service->flashPasDown();
-			}
-		} else if ($assignment->isStale()) {
-			if ($pas_service->isAvailable()) {
-				Yii::log('Gp details stale', 'trace');
 				$pas_service->updateGpFromPas($gp, $assignment);
 			} else {
 				$pas_service->flashPasDown();
+				$assignment->unlock();
 			}
+
+		} else if(!$assignment) {
+
+			// Error, missing assignment
+			if (get_class(Yii::app()) == 'CConsoleApplication') {
+				echo "Warning: unable to update gp $gp->obj_prof from PAS\n";
+			} else {
+				Yii::app()->getController()->render('/error/errorPAS');
+				Yii::app()->end();
+			}
+
 		}
+
 	}
 
 	/**

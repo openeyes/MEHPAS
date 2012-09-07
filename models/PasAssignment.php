@@ -43,6 +43,12 @@ class PasAssignment extends BaseActiveRecord {
 	const PAS_CACHE_TIME = 300;
 
 	/**
+	 * Stores last_modified timestamp during assignment lock
+	 * @var string
+	 */
+	protected $real_last_modified;
+	
+	/**
 	 * Returns the static model of the specified AR class.
 	 * @return Phrase the static model class
 	 */
@@ -118,7 +124,7 @@ class PasAssignment extends BaseActiveRecord {
 	 * @param integer $internal_id
 	 */
 	public function findByInternal($internal_type, $internal_id) {
-		return $this->find('internal_id = :internal_id AND internal_type = :internal_type', array(':internal_id' => (int) $internal_id, ':internal_type' => $internal_type));
+		return $this->findAndLockIfStale('internal_id = :internal_id AND internal_type = :internal_type', array(':internal_id' => (int) $internal_id, ':internal_type' => $internal_type));
 	}
 
 	/**
@@ -127,7 +133,7 @@ class PasAssignment extends BaseActiveRecord {
 	 * @param string $external_id
 	 */
 	public function findByExternal($external_type, $external_id) {
-		return $this->find('external_id = :external_id AND external_type = :external_type', array(':external_id' => (int) $external_id, ':external_type' => $external_type));
+		return $this->findAndLockIfStale('external_id = :external_id AND external_type = :external_type', array(':external_id' => (int) $external_id, ':external_type' => $external_type));
 	}
 
 	/**
@@ -135,18 +141,31 @@ class PasAssignment extends BaseActiveRecord {
 	 * @return boolean
 	 */
 	public function isStale() {
-		$cache_time = (isset(Yii::app()->params['mehpas_cache_time'])) ? Yii::app()->params['mehpas_cache_time'] : self::PAS_CACHE_TIME;
-		return strtotime($this->last_modified_date) < (time() - $cache_time);
+		return isset($this->real_last_modified);
 	}
 
-	/**
-	 * Check if record needs refreshing from PAS
-	 * @param string $internal_type
-	 * @param integer $internal_id
-	 */
-	public static function is_stale($internal_type, $internal_id) {
-		$record = self::model()->findByInternal($internal_type, $internal_id);
-		return $record && $record->isStale();
+	public function unlock() {
+		if(!$this->real_last_modified) {
+			throw new Exception('original last modified timestamp not stored, so record can\'t be unlocked');
+		}
+		$this->last_modified_date = $this->real_last_modified;
+		$this->save();
+	}
+	
+	protected function findAndLockIfStale($condition, $params) {
+		$connection = $this->getDbConnection();
+		$connection->beginTransaction();
+		$assignment = $this->find($condition . ' FOR UPDATE', $params);
+		$cache_time = (isset(Yii::app()->params['mehpas_cache_time'])) ? Yii::app()->params['mehpas_cache_time'] : self::PAS_CACHE_TIME;
+		if(strtotime($assignment->last_modified_date) < (time() - $cache_time)) {
+			// Assignment is stale. Update timestamp to 30 seconds in future to signal to other processes that record is locked
+			$assignment->real_last_modified = $assignment->last_modified_date;
+			$assignment->last_modified_date = date("Y-m-d H:i:s", time() + 30);
+			$assignment->save();
+		}
+		// TODO: Queue finds where record is locked
+		$connection->commit();
+		return $assignment;
 	}
 
 }

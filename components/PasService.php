@@ -458,13 +458,11 @@ class PasService {
 	 * @return PasAssignment
 	 */
 	protected function findPatientAssignment($rm_patient_no, $hos_num) {
-		if($assignment = PasAssignment::model()->findByExternal('PAS_Patient', $rm_patient_no)) {
+		$assignment = PasAssignment::model()->findByExternal('PAS_Patient', $rm_patient_no);
+		if($assignment && $assignment->isStale()) {
 			// Patient is in OpenEyes and has an existing assignment
-			$patient = $assignment->internal;
-			if($assignment->isStale()) {
-				$this->updatePatientFromPas($patient, $assignment);
-			}
-		} else {
+			$this->updatePatientFromPas($assignment->internal, $assignment);
+		} else if(!$assignment) {
 			// Patient is not in OpenEyes
 			$patient = new Patient();
 			$assignment = new PasAssignment();
