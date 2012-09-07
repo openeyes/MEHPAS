@@ -154,21 +154,26 @@ class PasAssignment extends BaseActiveRecord {
 
 	protected function findAndLockIfStale($condition, $params) {
 		$connection = $this->getDbConnection();
-		$connection->beginTransaction();
+		$transaction = $connection->beginTransaction();
 		$command = $connection->createCommand()
-		->select('last_modified_date')
-		->from($this->tableName())
-		->where($condition, $params);
+			->select('last_modified_date')
+			->from($this->tableName())
+			->where($condition, $params);
 		$command->setText($command->getText() . ' FOR UPDATE');
 		$modified = $command->queryScalar();
 		$cache_time = (isset(Yii::app()->params['mehpas_cache_time'])) ? Yii::app()->params['mehpas_cache_time'] : self::PAS_CACHE_TIME;
+		$stale = false;
 		if(strtotime($modified) < (time() - $cache_time)) {
 			// Assignment is stale. Update timestamp to 30 seconds in future to signal to other processes that record is locked
 			$connection->createCommand()->update($this->tableName(), array('last_modified_date' => date("Y-m-d H:i:s", time() + 30)), $condition, $params);
-			$assignment->real_last_modified = $modified;
+			$stale = true;
 		}
 		// TODO: Queue finds where record is locked
-		$connection->commit();
+		$assignment = $this->find($condition,$params);
+		$transaction->commit();
+		if($stale) {
+			$assignment->real_last_modified = $modified;
+		}
 		return $assignment;
 	}
 

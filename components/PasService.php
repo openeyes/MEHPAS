@@ -204,7 +204,7 @@ class PasService {
 						}
 
 						// Update/set patient's GP
-						if(!$patient->gp || $patient->gp_id != $gp->id) {
+						if(!$patient->gp_id || $patient->gp_id != $gp->id) {
 							Yii::log('Patient\'s GP changed:'.$gp->obj_prof, 'trace');
 							$patient->gp_id = $gp->id;
 						} else {
