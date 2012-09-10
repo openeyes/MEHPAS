@@ -154,31 +154,48 @@ class PasAssignment extends BaseActiveRecord {
 
 	protected function findAndLockIfStale($condition, $params) {
 		$connection = $this->getDbConnection();
+		
+		// Find transaction and get a lock on it
 		$transaction = $connection->beginTransaction();
 		$command = $connection->createCommand()
-			->select('id,last_modified_date')
-			->from($this->tableName())
-			->where($condition, $params);
+		->select('last_modified_date')
+		->from($this->tableName())
+		->where($condition, $params);
 		$command->setText($command->getText() . ' FOR UPDATE');
-		$record = $command->queryRow();
-		if($record) {
+		$modified = $command->queryScalar();
+		
+		if($modified) {
+			// Found assignment
 			$cache_time = (isset(Yii::app()->params['mehpas_cache_time'])) ? Yii::app()->params['mehpas_cache_time'] : self::PAS_CACHE_TIME;
 			$stale = false;
-			if(strtotime($record['last_modified_date']) < (time() - $cache_time)) {
-				// Assignment is stale. Update timestamp to 30 seconds in future to signal to other processes that record is locked
+
+			// Check to see if modified date is in the future
+			while(strtotime($modified) > time()) {
+				// It is, which indicates that the assignment is locked, keep checking until it's free
+				Yii::log("Assignment is locked ($modified), sleeping...");
+				$modified = $command->queryScalar();
+				sleep(1);
+			}
+			
+			// Check to see if assignment is stale 
+			if(strtotime($modified) < (time() - $cache_time)) {
+				// It is, so update timestamp to 30 seconds in future to signal to other processes that record is locked
 				$connection->createCommand()->update($this->tableName(), array('last_modified_date' => date("Y-m-d H:i:s", time() + 30)), $condition, $params);
 				$stale = true;
 			}
-			// TODO: Queue finds where record is locked
+			
 			$assignment = $this->find($condition,$params);
 			if($stale) {
-				$assignment->real_last_modified = $record['last_modified_date'];
+				$assignment->real_last_modified = $modified;
 			}
 		} else {
 			// No assignment
 			$assignment = null;
 		}
+		
+		// Release lock 
 		$transaction->commit();
+		
 		return $assignment;
 	}
 
