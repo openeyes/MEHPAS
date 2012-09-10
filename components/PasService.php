@@ -177,11 +177,6 @@ class PasService {
 					$patient_attrs['nhs_num'] = $nhs_number->NUMBER_ID;
 				}
 
-				// Get primary phone from patient's main address
-				if($pas_patient->address) {
-					$patient_attrs['primary_phone'] = $pas_patient->address->TEL_NO;
-				}
-
 				$patient->attributes = $patient_attrs;
 
 				// Get latest GP mapping from PAS
@@ -230,6 +225,10 @@ class PasService {
 				$contact->title = $this->fixCase($pas_patient->name->TITLE);
 				$contact->first_name = ($pas_patient->name->NAME1) ? $this->fixCase($pas_patient->name->NAME1) : '(UNKNOWN)';
 				$contact->last_name = $this->fixCase($pas_patient->name->SURNAME_ID);
+				if($pas_patient->address) {
+					// Get primary phone from patient's main address
+					$contact->primary_phone = $pas_patient->address->TEL_NO;
+				}
 				$contact->save();
 
 				$assignment->internal_id = $patient->id;
