@@ -158,20 +158,24 @@ class PasAssignment extends BaseActiveRecord {
 		// Find transaction and get a lock on it
 		$transaction = $connection->beginTransaction();
 		$command = $connection->createCommand()
-		->select('last_modified_date')
+		->select('id,last_modified_date')
 		->from($this->tableName())
 		->where($condition, $params);
 		$command->setText($command->getText() . ' FOR UPDATE');
-		$modified = $command->queryScalar();
+		$record = $command->queryRow();
+		$id = $record['id'];
+		$modified = $record['last_modified_date'];
 
 		// Check to see if modified date is in the future
 		while(strtotime($modified) > time()) {
 			// It is, which indicates that the assignment is locked, keep checking until we can get an exclusive lock
-			Yii::log("Assignment is locked (id: {$this->id}, last_modified_date: $modified), sleeping for 1 second...", 'trace');
+			Yii::log("Assignment is locked (id: $id, last_modified_date: $modified), sleeping for 1 second...", 'trace');
 			$transaction->commit();
 			sleep(1);
 			$transaction = $connection->beginTransaction();
-			$modified = $command->queryScalar();
+			$record = $command->queryRow();
+			$id = $record['id'];
+			$modified = $record['last_modified_date'];
 		}
 			
 		if($modified) {
@@ -183,10 +187,10 @@ class PasAssignment extends BaseActiveRecord {
 			if(strtotime($modified) < (time() - $cache_time)) {
 				// It is, so update timestamp to 30 seconds in future to signal to other processes that record is locked
 				$connection->createCommand()->update($this->tableName(), array('last_modified_date' => date("Y-m-d H:i:s", time() + 30)), $condition, $params);
-				Yii::log("Locking assignment: {$this->id}", 'trace');
+				Yii::log("Locking assignment: $id", 'trace');
 				$stale = true;
 			}
-				
+
 			$assignment = $this->find($condition,$params);
 			if($stale) {
 				$assignment->real_last_modified = $modified;
