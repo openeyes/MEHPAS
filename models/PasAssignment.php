@@ -172,7 +172,7 @@ class PasAssignment extends BaseActiveRecord {
 			// Check to see if modified date is in the future
 			while(strtotime($modified) > time()) {
 				// It is, which indicates that the assignment is locked, keep checking until it's free
-				Yii::log("Assignment is locked ($modified), sleeping...");
+				Yii::log("Assignment is locked ($modified), sleeping...", 'trace');
 				$modified = $command->queryScalar();
 				sleep(1);
 			}
@@ -181,6 +181,7 @@ class PasAssignment extends BaseActiveRecord {
 			if(strtotime($modified) < (time() - $cache_time)) {
 				// It is, so update timestamp to 30 seconds in future to signal to other processes that record is locked
 				$connection->createCommand()->update($this->tableName(), array('last_modified_date' => date("Y-m-d H:i:s", time() + 30)), $condition, $params);
+				Yii::log("Locking assignment", 'trace');
 				$stale = true;
 			}
 			
@@ -199,4 +200,13 @@ class PasAssignment extends BaseActiveRecord {
 		return $assignment;
 	}
 
+	public function save($runValidation = true, $attributes = null, $allow_overriding = false) {
+		Yii::log('Saving assignment','trace');
+		if(strtotime($this->last_modified_date > time())) {
+			Yii::log('Was locked: '.$this->last_modified_date,'trace');
+		}
+		parent::save($runValidation, $attributes, $allow_overriding);
+		Yii::log('New last_modified_date: '.$this->last_modified_date,'trace');
+	}
+	
 }
