@@ -154,7 +154,7 @@ class PasAssignment extends BaseActiveRecord {
 
 	protected function findAndLockIfStale($condition, $params) {
 		$connection = $this->getDbConnection();
-		
+
 		// Find transaction and get a lock on it
 		$transaction = $connection->beginTransaction();
 		$command = $connection->createCommand()
@@ -163,28 +163,30 @@ class PasAssignment extends BaseActiveRecord {
 		->where($condition, $params);
 		$command->setText($command->getText() . ' FOR UPDATE');
 		$modified = $command->queryScalar();
-		
+
+		// Check to see if modified date is in the future
+		while(strtotime($modified) > time()) {
+			// It is, which indicates that the assignment is locked, keep checking until we can get an exclusive lock
+			Yii::log("Assignment is locked ($modified), sleeping...", 'trace');
+			$transaction->commit();
+			sleep(1);
+			$transaction = $connection->beginTransaction();
+			$modified = $command->queryScalar();
+		}
+			
 		if($modified) {
 			// Found assignment
 			$cache_time = (isset(Yii::app()->params['mehpas_cache_time'])) ? Yii::app()->params['mehpas_cache_time'] : self::PAS_CACHE_TIME;
 			$stale = false;
 
-			// Check to see if modified date is in the future
-			while(strtotime($modified) > time()) {
-				// It is, which indicates that the assignment is locked, keep checking until it's free
-				Yii::log("Assignment is locked ($modified), sleeping...", 'trace');
-				$modified = $command->queryScalar();
-				sleep(1);
-			}
-			
-			// Check to see if assignment is stale 
+			// Check to see if assignment is stale
 			if(strtotime($modified) < (time() - $cache_time)) {
 				// It is, so update timestamp to 30 seconds in future to signal to other processes that record is locked
 				$connection->createCommand()->update($this->tableName(), array('last_modified_date' => date("Y-m-d H:i:s", time() + 30)), $condition, $params);
 				Yii::log("Locking assignment", 'trace');
 				$stale = true;
 			}
-			
+				
 			$assignment = $this->find($condition,$params);
 			if($stale) {
 				$assignment->real_last_modified = $modified;
@@ -193,10 +195,10 @@ class PasAssignment extends BaseActiveRecord {
 			// No assignment
 			$assignment = null;
 		}
-		
-		// Release lock 
+
+		// Release lock
 		$transaction->commit();
-		
+
 		return $assignment;
 	}
 
@@ -208,5 +210,5 @@ class PasAssignment extends BaseActiveRecord {
 		parent::save($runValidation, $attributes, $allow_overriding);
 		Yii::log('New last_modified_date: '.$this->last_modified_date,'trace');
 	}
-	
+
 }
