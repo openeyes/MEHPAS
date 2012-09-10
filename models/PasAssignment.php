@@ -149,7 +149,7 @@ class PasAssignment extends BaseActiveRecord {
 			throw new Exception('original last modified timestamp not stored, so record can\'t be unlocked');
 		}
 		$this->last_modified_date = $this->real_last_modified;
-		$this->save();
+		$this->save(true, null, true);
 	}
 
 	protected function findAndLockIfStale($condition, $params) {
@@ -167,7 +167,7 @@ class PasAssignment extends BaseActiveRecord {
 		// Check to see if modified date is in the future
 		while(strtotime($modified) > time()) {
 			// It is, which indicates that the assignment is locked, keep checking until we can get an exclusive lock
-			Yii::log("Assignment is locked ($modified), sleeping...", 'trace');
+			Yii::log("Assignment is locked (last_modified_date: $modified), sleeping for 1 second...", 'trace');
 			$transaction->commit();
 			sleep(1);
 			$transaction = $connection->beginTransaction();
@@ -203,12 +203,10 @@ class PasAssignment extends BaseActiveRecord {
 	}
 
 	public function save($runValidation = true, $attributes = null, $allow_overriding = false) {
-		Yii::log('Saving assignment','trace');
-		if(strtotime($this->last_modified_date > time())) {
-			Yii::log('Was locked: '.$this->last_modified_date,'trace');
+		if(!$allow_overriding || strtotime($this->last_modified_date <= time())) {
+			Yii::log('Unlocking assignment', 'trace');
 		}
 		parent::save($runValidation, $attributes, $allow_overriding);
-		Yii::log('New last_modified_date: '.$this->last_modified_date,'trace');
 	}
 
 }
