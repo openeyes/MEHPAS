@@ -31,6 +31,7 @@ class PasService {
 	public function isAvailable() {
 		if(isset(Yii::app()->params['mehpas_enabled']) && Yii::app()->params['mehpas_enabled'] === true) {
 			try {
+				Yii::log('Checking PAS is available','trace');
 				$connection = Yii::app()->db_pas;
 			} catch (Exception $e) {
 				//Yii::log('PAS is not available: '.$e->getMessage());
@@ -85,9 +86,9 @@ class PasService {
 					$contact = new Contact();
 					$contact->parent_class = 'Gp';
 				}
-				$contact->first_name = trim($pas_gp->FN1 . ' ' . $pas_gp->FN2);
-				$contact->last_name = $pas_gp->SN;
-				$contact->title = $pas_gp->TITLE;
+				$contact->first_name = $this->fixCase(trim($pas_gp->FN1 . ' ' . $pas_gp->FN2));
+				$contact->last_name = $this->fixCase($pas_gp->SN);
+				$contact->title = $this->fixCase($pas_gp->TITLE);
 				$contact->primary_phone = $pas_gp->TEL_1;
 
 				// Address
@@ -95,22 +96,27 @@ class PasService {
 					$address = new Address();
 					$address->parent_class = 'Contact';
 				}
-				$address->address1 = trim($pas_gp->ADD_NAM . ' ' . $pas_gp->ADD_NUM . ' ' . $pas_gp->ADD_ST);
-				$address->address2 = $pas_gp->ADD_DIS;
-				$address->city = $pas_gp->ADD_TWN;
-				$address->county = $pas_gp->ADD_CTY;
-				$address->postcode = $pas_gp->PC;
+				$address1 = array();
+				if($pas_gp->ADD_NAM) {
+					$address1[] = $this->fixCase(trim($pas_gp->ADD_NAM));
+				}
+				$address1[] = $this->fixCase(trim($pas_gp->ADD_NUM . ' ' . $pas_gp->ADD_ST));
+				$address->address1 = implode("\n",$address1);
+				$address->address2 = $this->fixCase($pas_gp->ADD_DIS);
+				$address->city = $this->fixCase($pas_gp->ADD_TWN);
+				$address->county = $this->fixCase($pas_gp->ADD_CTY);
+				$address->postcode = strtoupper($pas_gp->PC);
 				$address->country_id = 1;
 
 				// Save
 				$gp->save();
-				
+
 				$contact->parent_id = $gp->id;
 				$contact->save();
-				
+
 				$address->parent_id = $contact->id;
 				$address->save();
-				
+
 				$assignment->internal_id = $gp->id;
 				$assignment->save();
 
@@ -171,11 +177,6 @@ class PasService {
 					$patient_attrs['nhs_num'] = $nhs_number->NUMBER_ID;
 				}
 
-				// Get primary phone from patient's main address
-				if($pas_patient->address) {
-					$patient_attrs['primary_phone'] = $pas_patient->address->TEL_NO;
-				}
-
 				$patient->attributes = $patient_attrs;
 
 				// Get latest GP mapping from PAS
@@ -214,16 +215,20 @@ class PasService {
 
 				if (!$contact = $patient->contact) {
 					$contact = new Contact;
-					$contact->title = $pas_patient->name->TITLE;
-					$contact->first_name = ($pas_patient->name->NAME1) ? $pas_patient->name->NAME1 : '(UNKNOWN)';
-					$contact->last_name = $pas_patient->name->SURNAME_ID;
+					$contact->parent_class = 'Patient';
 				}
 
 				// Save
 				$patient->save();
 
 				$contact->parent_id = $patient->id;
-				$contact->parent_class = 'Patient';
+				$contact->title = $this->fixCase($pas_patient->name->TITLE);
+				$contact->first_name = ($pas_patient->name->NAME1) ? $this->fixCase($pas_patient->name->NAME1) : '(UNKNOWN)';
+				$contact->last_name = $this->fixCase($pas_patient->name->SURNAME_ID);
+				if($pas_patient->address) {
+					// Get primary phone from patient's main address
+					$contact->primary_phone = $pas_patient->address->TEL_NO;
+				}
 				$contact->save();
 
 				$assignment->internal_id = $patient->id;
@@ -387,7 +392,7 @@ class PasService {
 				$patient_assignment = $this->findPatientAssignment($result['RM_PATIENT_NO'], $result['NUM_ID_TYPE'] . $result['NUMBER_ID']);
 				if($patient_assignment) {
 					$patient = $patient_assignment->internal;
-	
+
 					// Check that patient has an address
 					if($patient->address) {
 						$ids[] = $patient->id;
@@ -523,14 +528,13 @@ class PasService {
 			$string = preg_replace('/([0-9])\./', '\1,', $string);
 
 			// That will probably do
-			$address1 = '';
-			if (!empty($propertyName)) {
-				$address1 .= "{$propertyName}, ";
+			$address1 = array();
+			if($propertyName) {
+				$address1[] = trim($propertyName);
 			}
-			if (!empty($propertyNumber)) {
-				$address1 .= "{$propertyNumber}, ";
-			}
-			$address1 .= $string;
+			$address1[] = trim($propertyNumber . ' ' . $string);
+			
+			$address1 = implode("\n", $address1);
 		}
 
 		// Create array of remaining address lines, from last to first
@@ -615,16 +619,35 @@ class PasService {
 		}
 
 		// Store data
-		$address->address1 = $address1;
-		$address->address2 = $address2;
-		$address->city = $town;
-		$address->county = $county;
+		$address->address1 = $this->fixCase($address1);
+		$address->address2 = $this->fixCase($address2);
+		$address->city = $this->fixCase($town);
+		$address->county = $this->fixCase($county);
 		$unitedKingdom = Country::model()->findByAttributes(array('name' => 'United Kingdom'));
 		$address->country_id = $unitedKingdom->id;
-		$address->postcode = $postcode;
+		$address->postcode = strtoupper($postcode);
 		$address->type = $data->ADDR_TYPE;
 		$address->date_start = $data->DATE_START;
 		$address->date_end = $data->DATE_END;
+
+	}
+
+	protected function fixCase($string) {
+		
+		// Basic Title Case to start with
+		$string = ucwords(strtolower($string));
+
+		// Fix delimited words
+		foreach (array('-', '\'', '.') as $delimiter) {
+			if (strpos($string, $delimiter) !== false) {
+				$string = implode($delimiter, array_map('ucfirst', explode($delimiter, $string)));
+			}
+		}
+
+		// Exception is possessive (i.e. Paul's should not be Paul'S)
+		$string = str_replace('\'S ', '\'s ', $string);
+
+		return $string;
 
 	}
 
