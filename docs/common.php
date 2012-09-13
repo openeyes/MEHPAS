@@ -39,7 +39,6 @@ return array(
 				'db_pas' => array(
 						'class' => 'CDbConnection',
 						'connectionString' => 'oci:dbname=remotename:1521/database',
-						'emulatePrepare' => false,
 						'username' => 'root',
 						'password' => '',
 						'schemaCachingDuration' => 300,
@@ -47,6 +46,8 @@ return array(
 						'initSQLs' => array(
 								'ALTER SESSION SET NLS_DATE_FORMAT = \'YYYY-MM-DD\'',
 						),
+						// Don't autoconnect, as many pages don't need access to PAS
+						'autoConnect' => false,
 				),
 		),
 		'params'=>array(

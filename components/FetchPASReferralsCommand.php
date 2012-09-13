@@ -32,7 +32,7 @@ class FetchPASReferralsCommand extends CConsoleCommand {
 		echo "Disabled until the referral code is fixed";
 		return false;
 		$pas_service = new PasService();
-		if ($pas_service->available) {
+		if ($pas_service->isAvailable()) {
 			$pas_service->fetchNewReferrals();
 		} else {
 			echo "PAS is unavailable or module is disabled";

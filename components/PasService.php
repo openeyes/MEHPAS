@@ -19,27 +19,25 @@
 
 class PasService {
 
-	public $available = true;
-
-	public function __construct() {
-		$this->available = $this->isAvailable();
-	}
+	protected $available;
 
 	/**
 	 * Is PAS enabled and up?
 	 */
 	public function isAvailable() {
-		if(isset(Yii::app()->params['mehpas_enabled']) && Yii::app()->params['mehpas_enabled'] === true) {
-			try {
-				$connection = Yii::app()->db_pas;
-			} catch (Exception $e) {
-				//Yii::log('PAS is not available: '.$e->getMessage());
-				return false;
+		if(!isset($this->available)) {
+			$this->available = false;
+			if(isset(Yii::app()->params['mehpas_enabled']) && Yii::app()->params['mehpas_enabled'] === true) {
+				try {
+					Yii::log('Checking PAS is available','trace');
+					$connection = Yii::app()->db_pas;
+				} catch (Exception $e) {
+					//Yii::log('PAS is not available: '.$e->getMessage());
+				}
+				$this->available = true;
 			}
-			return true;
-		} else {
-			return false;
 		}
+		return $this->available;
 	}
 
 	/**
@@ -48,7 +46,7 @@ class PasService {
 	public function flashPasDown() {
 		Yii::log('PAS is not available, displayed data may be out of date', 'trace');
 		if(Yii::app() instanceof CWebApplication) {
-			Yii::app()->user->setFlash('warning.pas_unavailable', 'PAS is not available');
+			Yii::app()->user->setFlash('warning.pas_unavailable', 'PAS is currently unavailable, some data may be out of date or incomplete');
 		}
 	}
 
@@ -66,10 +64,11 @@ class PasService {
 	 * @param Gp $gp
 	 */
 	public function updateGpFromPas($gp, $assignment) {
-		if (!$this->available) return;
+		if (!$this->isAvailable()) return;
 
 		try {
-			Yii::log('Pulling data from PAS for gp ID:'.$gp->id, 'trace');
+			$gp_log = ($gp->id) ? $gp->id : 'NEW';
+			Yii::log('Pulling data from PAS for gp ID:'.$gp_log, 'trace');
 			if(!$assignment->external_id) {
 				// Without an external ID we have no way of looking up the gp in PAS
 				throw new CException('GP assignment has no external ID');
@@ -82,12 +81,11 @@ class PasService {
 				// Contact
 				if(!$contact = $gp->contact) {
 					$contact = new Contact();
-					$contact->parent_id = $gp->id;
 					$contact->parent_class = 'Gp';
 				}
-				$contact->first_name = trim($pas_gp->FN1 . ' ' . $pas_gp->FN2);
-				$contact->last_name = $pas_gp->SN;
-				$contact->title = $pas_gp->TITLE;
+				$contact->first_name = $this->fixCase(trim($pas_gp->FN1 . ' ' . $pas_gp->FN2));
+				$contact->last_name = $this->fixCase($pas_gp->SN);
+				$contact->title = $this->fixCase($pas_gp->TITLE);
 				$contact->primary_phone = $pas_gp->TEL_1;
 
 				// Address
@@ -95,18 +93,27 @@ class PasService {
 					$address = new Address();
 					$address->parent_class = 'Contact';
 				}
-				$address->address1 = trim($pas_gp->ADD_NAM . ' ' . $pas_gp->ADD_NUM . ' ' . $pas_gp->ADD_ST);
-				$address->address2 = $pas_gp->ADD_DIS;
-				$address->city = $pas_gp->ADD_TWN;
-				$address->county = $pas_gp->ADD_CTY;
-				$address->postcode = $pas_gp->PC;
+				$address1 = array();
+				if($pas_gp->ADD_NAM) {
+					$address1[] = $this->fixCase(trim($pas_gp->ADD_NAM));
+				}
+				$address1[] = $this->fixCase(trim($pas_gp->ADD_NUM . ' ' . $pas_gp->ADD_ST));
+				$address->address1 = implode("\n",$address1);
+				$address->address2 = $this->fixCase($pas_gp->ADD_DIS);
+				$address->city = $this->fixCase($pas_gp->ADD_TWN);
+				$address->county = $this->fixCase($pas_gp->ADD_CTY);
+				$address->postcode = strtoupper($pas_gp->PC);
 				$address->country_id = 1;
 
 				// Save
+				$gp->save();
+
+				$contact->parent_id = $gp->id;
 				$contact->save();
+
 				$address->parent_id = $contact->id;
 				$address->save();
-				$gp->save();
+
 				$assignment->internal_id = $gp->id;
 				$assignment->save();
 
@@ -123,7 +130,7 @@ class PasService {
 
 		foreach ($e->getTrace() as $i => $item) {
 			if ($i <10) $i = ' '.$i;
-			$logmsg .= $i.'. '.$item['class'].$item['type'].$item['function'].'()';
+			$logmsg .= $i.'. '.@$item['class'].@$item['type'].$item['function'].'()';
 			if (isset($item['file']) && isset($item['line'])) {
 				$logmsg .= ' '.$item['file'].':'.$item['line'];
 			}
@@ -142,10 +149,11 @@ class PasService {
 	 * @param PasPatientAssignment $assignment
 	 */
 	public function updatePatientFromPas($patient, $assignment) {
-		if (!$this->available) return;
+		if (!$this->isAvailable()) return;
 
 		try {
-			Yii::log('Pulling data from PAS for patient ID:'.$patient->id, 'trace');
+			$patient_log = ($patient->id) ? $patient->id : 'NEW';
+			Yii::log('Pulling data from PAS for patient ID:'.$patient_log, 'trace');
 			if(!$assignment->external_id) {
 				// Without an external ID we have no way of looking up the patient in PAS
 				throw new CException('Patient assignment has no external ID');
@@ -164,11 +172,6 @@ class PasService {
 				}
 				if($nhs_number = $pas_patient->nhs_number) {
 					$patient_attrs['nhs_num'] = $nhs_number->NUMBER_ID;
-				}
-
-				// Get primary phone from patient's main address
-				if($pas_patient->address) {
-					$patient_attrs['primary_phone'] = $pas_patient->address->TEL_NO;
 				}
 
 				$patient->attributes = $patient_attrs;
@@ -196,7 +199,7 @@ class PasService {
 						}
 
 						// Update/set patient's GP
-						if(!$patient->gp || $patient->gp_id != $gp->id) {
+						if(!$patient->gp_id || $patient->gp_id != $gp->id) {
 							Yii::log('Patient\'s GP changed:'.$gp->obj_prof, 'trace');
 							$patient->gp_id = $gp->id;
 						} else {
@@ -209,16 +212,20 @@ class PasService {
 
 				if (!$contact = $patient->contact) {
 					$contact = new Contact;
-					$contact->title = $pas_patient->name->TITLE;
-					$contact->first_name = ($pas_patient->name->NAME1) ? $pas_patient->name->NAME1 : '(UNKNOWN)';
-					$contact->last_name = $pas_patient->name->SURNAME_ID;
+					$contact->parent_class = 'Patient';
 				}
 
 				// Save
 				$patient->save();
 
 				$contact->parent_id = $patient->id;
-				$contact->parent_class = 'Patient';
+				$contact->title = $this->fixCase($pas_patient->name->TITLE);
+				$contact->first_name = ($pas_patient->name->NAME1) ? $this->fixCase($pas_patient->name->NAME1) : '(UNKNOWN)';
+				$contact->last_name = $this->fixCase($pas_patient->name->SURNAME_ID);
+				if($pas_patient->address) {
+					// Get primary phone from patient's main address
+					$contact->primary_phone = $pas_patient->address->TEL_NO;
+				}
 				$contact->save();
 
 				$assignment->internal_id = $patient->id;
@@ -380,13 +387,18 @@ class PasService {
 
 				// See if the patient is in openeyes, if not then fetch from PAS
 				$patient_assignment = $this->findPatientAssignment($result['RM_PATIENT_NO'], $result['NUM_ID_TYPE'] . $result['NUMBER_ID']);
-				$patient = $patient_assignment->internal;
+				if($patient_assignment) {
+					$patient = $patient_assignment->internal;
 
-				// Check that patient has an address
-				if($patient->address) {
-					$ids[] = $patient->id;
+					// Check that patient has an address
+					if($patient->address) {
+						$ids[] = $patient->id;
+					} else {
+						$patients_with_no_address++;
+					}
 				} else {
-					$patients_with_no_address++;
+					// Something went wrong with the assignment, probably a DB error
+					Yii::log("Patient assignment failed for RM_PATIENT_NO " . $result['RM_PATIENT_NO']);
 				}
 
 			}
@@ -445,13 +457,11 @@ class PasService {
 	 * @return PasAssignment
 	 */
 	protected function findPatientAssignment($rm_patient_no, $hos_num) {
-		if($assignment = PasAssignment::model()->findByExternal('PAS_Patient', $rm_patient_no)) {
+		$assignment = PasAssignment::model()->findByExternal('PAS_Patient', $rm_patient_no);
+		if($assignment && $assignment->isStale()) {
 			// Patient is in OpenEyes and has an existing assignment
-			$patient = $assignment->internal;
-			if($assignment->isStale()) {
-				$this->updatePatientFromPas($patient, $assignment);
-			}
-		} else {
+			$this->updatePatientFromPas($assignment->internal, $assignment);
+		} else if(!$assignment) {
 			// Patient is not in OpenEyes
 			$patient = new Patient();
 			$assignment = new PasAssignment();
@@ -465,7 +475,12 @@ class PasService {
 				$this->associateLegacyEvents($patient);
 			}
 		}
-		return $assignment;
+		// Only return assignment if it's been fully updated
+		if($assignment->internal) {
+			return $assignment;
+		} else {
+			return null;
+		}
 	}
 
 	/**
@@ -513,14 +528,13 @@ class PasService {
 			$string = preg_replace('/([0-9])\./', '\1,', $string);
 
 			// That will probably do
-			$address1 = '';
-			if (!empty($propertyName)) {
-				$address1 .= "{$propertyName}, ";
+			$address1 = array();
+			if($propertyName) {
+				$address1[] = trim($propertyName);
 			}
-			if (!empty($propertyNumber)) {
-				$address1 .= "{$propertyNumber}, ";
-			}
-			$address1 .= $string;
+			$address1[] = trim($propertyNumber . ' ' . $string);
+			
+			$address1 = implode("\n", $address1);
 		}
 
 		// Create array of remaining address lines, from last to first
@@ -605,13 +619,13 @@ class PasService {
 		}
 
 		// Store data
-		$address->address1 = $address1;
-		$address->address2 = $address2;
-		$address->city = $town;
-		$address->county = $county;
+		$address->address1 = $this->fixCase($address1);
+		$address->address2 = $this->fixCase($address2);
+		$address->city = $this->fixCase($town);
+		$address->county = $this->fixCase($county);
 		$unitedKingdom = Country::model()->findByAttributes(array('name' => 'United Kingdom'));
 		$address->country_id = $unitedKingdom->id;
-		$address->postcode = $postcode;
+		$address->postcode = strtoupper($postcode);
 		$address->type = $data->ADDR_TYPE;
 		$address->date_start = $data->DATE_START;
 		$address->date_end = $data->DATE_END;
@@ -648,4 +662,24 @@ class PasService {
 			$episode->start_date = date('Y-m-d H:i:s',$earliest);
 		}
 	}
+	
+	protected function fixCase($string) {
+		
+		// Basic Title Case to start with
+		$string = ucwords(strtolower($string));
+
+		// Fix delimited words
+		foreach (array('-', '\'', '.') as $delimiter) {
+			if (strpos($string, $delimiter) !== false) {
+				$string = implode($delimiter, array_map('ucfirst', explode($delimiter, $string)));
+			}
+		}
+
+		// Exception is possessive (i.e. Paul's should not be Paul'S)
+		$string = str_replace('\'S ', '\'s ', $string);
+
+		return $string;
+
+	}
+
 }
