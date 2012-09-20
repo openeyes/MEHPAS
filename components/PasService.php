@@ -221,7 +221,7 @@ class PasService {
 								$gp_address1[] = $this->fixCase(trim($pas_practice->ADD_NAM));
 							}
 							$gp_address1[] = $this->fixCase(trim($pas_practice->ADD_NUM . ' ' . $pas_practice->ADD_ST));
-							$gp_address->address1 = implode("\n",$address1);
+							$gp_address->address1 = implode("\n",$gp_address1);
 							$gp_address->address2 = $this->fixCase($pas_practice->ADD_DIS);
 							$gp_address->city = $this->fixCase($pas_practice->ADD_TWN);
 							$gp_address->county = $this->fixCase($pas_practice->ADD_CTY);
