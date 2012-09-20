@@ -92,12 +92,12 @@ class PasService {
 				$contact->primary_phone = $pas_gp->TEL_1;
 
 				// Address
-				if(!$address = $contact->address) {
-					$address = new Address();
-					$address->parent_class = 'Contact';
-				}
+				// As a temporary work around for surgery address, we are populating GP address through patient update
 				/*
-				 * As a temporary work around for surgery address, we are populating GP address through patient update
+				if(!$address = $contact->address) {
+				$address = new Address();
+				$address->parent_class = 'Contact';
+				}
 				$address1 = array();
 				if($pas_gp->ADD_NAM) {
 				$address1[] = $this->fixCase(trim($pas_gp->ADD_NAM));
@@ -117,8 +117,8 @@ class PasService {
 				$contact->parent_id = $gp->id;
 				$contact->save();
 
-				$address->parent_id = $contact->id;
-				$address->save();
+				//$address->parent_id = $contact->id;
+				//$address->save();
 
 				$assignment->internal_id = $gp->id;
 				$assignment->save();
@@ -213,9 +213,13 @@ class PasService {
 						}
 
 						// Get surgery address and force it into the GP address (temporary work around until we have surgeries
+						$gp_contact = $gp->contact;
+						if(!$gp_address = $contact->address) {
+							$gp_address = new Address();
+							$gp_address->parent_class = 'Contact';
+							$gp_address->parent_id = $gp_contact->id;
+						}
 						if($pas_patient_gp->PRACTICE_CODE && $pas_practice = PAS_Practice::model()->findByExternalId($pas_patient_gp->PRACTICE_CODE)) {
-							$gp_contact = $gp->contact;
-							$gp_address = $gp_contact->address;
 							$gp_address1 = array();
 							if($pas_practice->ADD_NAM) {
 								$gp_address1[] = $this->fixCase(trim($pas_practice->ADD_NAM));
@@ -228,8 +232,9 @@ class PasService {
 							$gp_address->postcode = strtoupper($pas_practice->PC);
 							$gp_address->country_id = 1;
 							$gp_address->save();
-							$gp_contact->primary_phone = $pas_practice->TEL_1;
-							$gp_contact->save();
+						} else if($gp_address->id){
+							// Remove address as can't get surgery address
+							$gp_address->delete();
 						}
 
 					}
@@ -557,7 +562,7 @@ class PasService {
 				$address1[] = trim($propertyName);
 			}
 			$address1[] = trim($propertyNumber . ' ' . $string);
-				
+
 			$address1 = implode("\n", $address1);
 		}
 
