@@ -96,9 +96,11 @@ class PasService {
 					$address = new Address();
 					$address->parent_class = 'Contact';
 				}
+				/*
+				 * As a temporary work around for surgery address, we are populating GP address through patient update
 				$address1 = array();
 				if($pas_gp->ADD_NAM) {
-					$address1[] = $this->fixCase(trim($pas_gp->ADD_NAM));
+				$address1[] = $this->fixCase(trim($pas_gp->ADD_NAM));
 				}
 				$address1[] = $this->fixCase(trim($pas_gp->ADD_NUM . ' ' . $pas_gp->ADD_ST));
 				$address->address1 = implode("\n",$address1);
@@ -107,6 +109,7 @@ class PasService {
 				$address->county = $this->fixCase($pas_gp->ADD_CTY);
 				$address->postcode = strtoupper($pas_gp->PC);
 				$address->country_id = 1;
+				*/
 
 				// Save
 				$gp->save();
@@ -208,6 +211,27 @@ class PasService {
 						} else {
 							Yii::log('Patient\'s GP has not changed', 'trace');
 						}
+
+						// Get surgery address and force it into the GP address (temporary work around until we have surgeries
+						if($pas_patient_gp->PRACTICE_CODE && $pas_practice = PAS_Practice::model()->findByExternalId($pas_patient_gp->PRACTICE_CODE)) {
+							$gp_contact = $gp->contact;
+							$gp_address = $gp_contact->address;
+							$gp_address1 = array();
+							if($pas_practice->ADD_NAM) {
+								$gp_address1[] = $this->fixCase(trim($pas_practice->ADD_NAM));
+							}
+							$gp_address1[] = $this->fixCase(trim($pas_practice->ADD_NUM . ' ' . $pas_practice->ADD_ST));
+							$gp_address->address1 = implode("\n",$address1);
+							$gp_address->address2 = $this->fixCase($pas_practice->ADD_DIS);
+							$gp_address->city = $this->fixCase($pas_practice->ADD_TWN);
+							$gp_address->county = $this->fixCase($pas_practice->ADD_CTY);
+							$gp_address->postcode = strtoupper($pas_practice->PC);
+							$gp_address->country_id = 1;
+							$gp_address->save();
+							$gp_contact->primary_phone = $pas_practice->TEL_1;
+							$gp_contact->save();
+						}
+
 					}
 				} else {
 					Yii::log('Patient has no GP in PAS', 'info');
@@ -533,7 +557,7 @@ class PasService {
 				$address1[] = trim($propertyName);
 			}
 			$address1[] = trim($propertyNumber . ' ' . $string);
-			
+				
 			$address1 = implode("\n", $address1);
 		}
 
@@ -633,7 +657,7 @@ class PasService {
 	}
 
 	protected function fixCase($string) {
-		
+
 		// Basic Title Case to start with
 		$string = ucwords(strtolower($string));
 
