@@ -213,28 +213,29 @@ class PasService {
 						}
 
 						// Get surgery address and force it into the GP address (temporary work around until we have surgeries
-						$gp_contact = $gp->contact;
-						if(!$gp_address = $contact->address) {
-							$gp_address = new Address();
-							$gp_address->parent_class = 'Contact';
-							$gp_address->parent_id = $gp_contact->id;
-						}
-						if($pas_patient_gp->PRACTICE_CODE && $pas_practice = PAS_Practice::model()->findByExternalId($pas_patient_gp->PRACTICE_CODE)) {
-							$gp_address1 = array();
-							if($pas_practice->ADD_NAM) {
-								$gp_address1[] = $this->fixCase(trim($pas_practice->ADD_NAM));
+						if($gp_contact = $gp->contact) {
+							if(!$gp_address = $contact->address) {
+								$gp_address = new Address();
+								$gp_address->parent_class = 'Contact';
+								$gp_address->parent_id = $gp_contact->id;
 							}
-							$gp_address1[] = $this->fixCase(trim($pas_practice->ADD_NUM . ' ' . $pas_practice->ADD_ST));
-							$gp_address->address1 = implode("\n",$gp_address1);
-							$gp_address->address2 = $this->fixCase($pas_practice->ADD_DIS);
-							$gp_address->city = $this->fixCase($pas_practice->ADD_TWN);
-							$gp_address->county = $this->fixCase($pas_practice->ADD_CTY);
-							$gp_address->postcode = strtoupper($pas_practice->PC);
-							$gp_address->country_id = 1;
-							$gp_address->save();
-						} else if($gp_address->id){
-							// Remove address as can't get surgery address
-							$gp_address->delete();
+							if($pas_patient_gp->PRACTICE_CODE && $pas_practice = PAS_Practice::model()->findByExternalId($pas_patient_gp->PRACTICE_CODE)) {
+								$gp_address1 = array();
+								if($pas_practice->ADD_NAM) {
+									$gp_address1[] = $this->fixCase(trim($pas_practice->ADD_NAM));
+								}
+								$gp_address1[] = $this->fixCase(trim($pas_practice->ADD_NUM . ' ' . $pas_practice->ADD_ST));
+								$gp_address->address1 = implode("\n",$gp_address1);
+								$gp_address->address2 = $this->fixCase($pas_practice->ADD_DIS);
+								$gp_address->city = $this->fixCase($pas_practice->ADD_TWN);
+								$gp_address->county = $this->fixCase($pas_practice->ADD_CTY);
+								$gp_address->postcode = strtoupper($pas_practice->PC);
+								$gp_address->country_id = 1;
+								$gp_address->save();
+							} else if($gp_address->id){
+								// Remove address as can't get surgery address
+								$gp_address->delete();
+							}
 						}
 
 					}
