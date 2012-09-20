@@ -214,7 +214,7 @@ class PasService {
 
 						// Get surgery address and force it into the GP address (temporary work around until we have surgeries
 						if($gp_contact = $gp->contact) {
-							if(!$gp_address = $contact->address) {
+							if(!$gp_address = $gp_contact->address) {
 								$gp_address = new Address();
 								$gp_address->parent_class = 'Contact';
 								$gp_address->parent_id = $gp_contact->id;
