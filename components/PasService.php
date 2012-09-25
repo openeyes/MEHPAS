@@ -232,11 +232,13 @@ class PasService {
 								$gp_address->postcode = strtoupper($pas_practice->PC);
 								$gp_address->country_id = 1;
 								$gp_address->save();
-								$gp_contact = $pas_practice->TEL_1;
+								$gp_contact->primary_phone = $pas_practice->TEL_1;
 								$gp_contact->save();
 							} else if($gp_address->id){
 								// Remove address as can't get surgery address
 								$gp_address->delete();
+								$gp_contact->primary_phone = '';
+								$gp_contact->save();
 							}
 						}
 
