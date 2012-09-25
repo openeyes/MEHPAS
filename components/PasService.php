@@ -89,7 +89,7 @@ class PasService {
 				$contact->first_name = $this->fixCase(trim($pas_gp->FN1 . ' ' . $pas_gp->FN2));
 				$contact->last_name = $this->fixCase($pas_gp->SN);
 				$contact->title = $this->fixCase($pas_gp->TITLE);
-				$contact->primary_phone = $pas_gp->TEL_1;
+				//$contact->primary_phone = $pas_gp->TEL_1;
 
 				// Address
 				// As a temporary work around for surgery address, we are populating GP address through patient update
@@ -232,6 +232,8 @@ class PasService {
 								$gp_address->postcode = strtoupper($pas_practice->PC);
 								$gp_address->country_id = 1;
 								$gp_address->save();
+								$gp_contact = $pas_practice->TEL_1;
+								$gp_contact->save();
 							} else if($gp_address->id){
 								// Remove address as can't get surgery address
 								$gp_address->delete();
