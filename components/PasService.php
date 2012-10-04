@@ -282,7 +282,7 @@ class PasService {
 					// Update/set patient's practice
 					if(!$patient->practice || $patient->practice_id != $practice->id) {
 						Yii::log('Patient\'s practice changed:'.$practice->code, 'trace');
-						$patient->practice_id = $$practice->id;
+						$patient->practice_id = $practice->id;
 					} else {
 						Yii::log('Patient\'s practice has not changed', 'trace');
 					}
