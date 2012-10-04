@@ -89,24 +89,40 @@ class PasService {
 				$contact->first_name = $this->fixCase(trim($pas_gp->FN1 . ' ' . $pas_gp->FN2));
 				$contact->last_name = $this->fixCase($pas_gp->SN);
 				$contact->title = $this->fixCase($pas_gp->TITLE);
-				$contact->primary_phone = $pas_gp->TEL_1;
-
-				// Address
-				if(!$address = $contact->address) {
-					$address = new Address();
-					$address->parent_class = 'Contact';
+				if(trim($pas_gp->TEL_1)) {
+					$contact->primary_phone = trim($pas_gp->TEL_1);
+				} else {
+					$contact->primary_phone = 'Unknown';
 				}
+				
+				// Address
 				$address1 = array();
 				if($pas_gp->ADD_NAM) {
 					$address1[] = $this->fixCase(trim($pas_gp->ADD_NAM));
 				}
 				$address1[] = $this->fixCase(trim($pas_gp->ADD_NUM . ' ' . $pas_gp->ADD_ST));
-				$address->address1 = implode("\n",$address1);
-				$address->address2 = $this->fixCase($pas_gp->ADD_DIS);
-				$address->city = $this->fixCase($pas_gp->ADD_TWN);
-				$address->county = $this->fixCase($pas_gp->ADD_CTY);
-				$address->postcode = strtoupper($pas_gp->PC);
-				$address->country_id = 1;
+				$address1 = implode("\n",$address1);
+				$address2 = $this->fixCase($pas_gp->ADD_DIS);
+				$city = $this->fixCase($pas_gp->ADD_TWN);
+				$postcode = strtoupper($pas_gp->PC);
+				if(trim(implode('',array($address1, $address2, $city, $postcode)))) {
+					if(!$address = $contact->address) {
+						$address = new Address();
+						$address->parent_class = 'Contact';
+					}
+					$address->address1 = $address1;
+					$address->address2 = $address2;
+					$address->city = $city;
+					$address->county = $this->fixCase($pas_practice->ADD_CTY);
+					$address->postcode = $postcode;
+					$address->country_id = 1;
+				} else {
+					// Address doesn't look useful, so we'll delete it
+					if($address = $contact->address) {
+						$address->delete();
+						$address = null;
+					}
+				}
 
 				// Save
 				$gp->save();
