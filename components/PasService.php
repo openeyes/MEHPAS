@@ -113,7 +113,7 @@ class PasService {
 					$address->address1 = $address1;
 					$address->address2 = $address2;
 					$address->city = $city;
-					$address->county = $this->fixCase($pas_practice->ADD_CTY);
+					$address->county = $this->fixCase($pas_gp->ADD_CTY);
 					$address->postcode = $postcode;
 					$address->country_id = 1;
 				} else {
@@ -130,8 +130,10 @@ class PasService {
 				$contact->parent_id = $gp->id;
 				$contact->save();
 
-				$address->parent_id = $contact->id;
-				$address->save();
+				if($address) {
+					$address->parent_id = $contact->id;
+					$address->save();
+				}
 
 				$assignment->internal_id = $gp->id;
 				$assignment->save();
