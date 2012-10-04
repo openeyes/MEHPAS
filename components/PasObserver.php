@@ -69,6 +69,35 @@ class PasObserver {
 	}
 
 	/**
+	 * Update Practice from PAS
+	 * @param array $params
+	 */
+	public function updatePracticeFromPas($params) {
+		$practice = $params['practice'];
+		
+		// Check if stale
+		$assignment = PasAssignment::model()->findByInternal('Practice', $practice->id);
+		if($assignment && $assignment->isStale()) {
+				Yii::log('Practice details stale', 'trace');
+				$pas_service = new PasService();
+				if ($pas_service->isAvailable()) {
+					$pas_service->updatePracticeFromPas($practice, $assignment);
+				} else {
+					$pas_service->flashPasDown();
+				}
+		} else if(!$assignment) {
+			
+			// Error, missing assignment
+			if (get_class(Yii::app()) == 'CConsoleApplication') {
+				echo "Warning: unable to update practice $practice->code from PAS\n";
+			} else {
+				Yii::app()->getController()->render('/error/errorPAS');
+				Yii::app()->end();
+			}
+		}
+	}
+	
+	/**
 	 * Search PAS for patient
 	 * @param array $params
 	 */

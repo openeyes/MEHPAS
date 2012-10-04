@@ -89,18 +89,16 @@ class PasService {
 				$contact->first_name = $this->fixCase(trim($pas_gp->FN1 . ' ' . $pas_gp->FN2));
 				$contact->last_name = $this->fixCase($pas_gp->SN);
 				$contact->title = $this->fixCase($pas_gp->TITLE);
-				//$contact->primary_phone = $pas_gp->TEL_1;
+				$contact->primary_phone = $pas_gp->TEL_1;
 
 				// Address
-				// As a temporary work around for surgery address, we are populating GP address through patient update
-				/*
 				if(!$address = $contact->address) {
-				$address = new Address();
-				$address->parent_class = 'Contact';
+					$address = new Address();
+					$address->parent_class = 'Contact';
 				}
 				$address1 = array();
 				if($pas_gp->ADD_NAM) {
-				$address1[] = $this->fixCase(trim($pas_gp->ADD_NAM));
+					$address1[] = $this->fixCase(trim($pas_gp->ADD_NAM));
 				}
 				$address1[] = $this->fixCase(trim($pas_gp->ADD_NUM . ' ' . $pas_gp->ADD_ST));
 				$address->address1 = implode("\n",$address1);
@@ -109,7 +107,6 @@ class PasService {
 				$address->county = $this->fixCase($pas_gp->ADD_CTY);
 				$address->postcode = strtoupper($pas_gp->PC);
 				$address->country_id = 1;
-				*/
 
 				// Save
 				$gp->save();
@@ -117,8 +114,8 @@ class PasService {
 				$contact->parent_id = $gp->id;
 				$contact->save();
 
-				//$address->parent_id = $contact->id;
-				//$address->save();
+				$address->parent_id = $contact->id;
+				$address->save();
 
 				$assignment->internal_id = $gp->id;
 				$assignment->save();
@@ -131,6 +128,59 @@ class PasService {
 		}
 	}
 
+	/**
+	 * Update Practice from PAS
+	 * @param Practice $practice
+	 */
+	public function updatePracticeFromPas($practice, $assignment) {
+		if (!$this->isAvailable()) return;
+
+		try {
+			$practice_log = ($practice->id) ? $practice->id : 'NEW';
+			Yii::log('Pulling data from PAS for practice ID:'.$practice_log, 'trace');
+			if(!$assignment->external_id) {
+				// Without an external ID we have no way of looking up the practice in PAS
+				throw new CException('Practice assignment has no external ID');
+			}
+			if($pas_practice = $assignment->external) {
+				Yii::log('Found Pracice in PAS obj_loc:'.$pas_practice->OBJ_LOC, 'trace');
+				$practice->code = $pas_practice->OBJ_LOC;
+				$practice->phone = $pas_practice->TEL_1;
+
+				// Address
+				if(!$address = $practice->address) {
+					$address = new Address();
+					$address->parent_class = 'Practice';
+				}
+				$address1 = array();
+				if($pas_practice->ADD_NAM) {
+					$address1[] = $this->fixCase(trim($pas_practice->ADD_NAM));
+				}
+				$address1[] = $this->fixCase(trim($pas_practice->ADD_NUM . ' ' . $pas_practice->ADD_ST));
+				$address->address1 = implode("\n",$address1);
+				$address->address2 = $this->fixCase($pas_practice->ADD_DIS);
+				$address->city = $this->fixCase($pas_practice->ADD_TWN);
+				$address->county = $this->fixCase($pas_practice->ADD_CTY);
+				$address->postcode = strtoupper($pas_practice->PC);
+				$address->country_id = 1;
+
+				// Save
+				$practice->save();
+
+				$address->parent_id = $practice->id;
+				$address->save();
+
+				$assignment->internal_id = $practice->id;
+				$assignment->save();
+
+			} else {
+				Yii::log('Practice not found in PAS: '.$practice->id, 'info');
+			}
+		} catch (CDbException $e) {
+			$this->handlePASException($e);
+		}
+	}
+	
 	public function handlePASException($e) {
 		$logmsg = "PAS DB exception: ".$e->getMessage()."\n";
 
@@ -185,13 +235,14 @@ class PasService {
 				// Get latest GP mapping from PAS
 				$pas_patient_gp = $pas_patient->PatientGp;
 				if($pas_patient_gp) {
-					// Check that GP is not on our block list
+					
+					// Check if GP is not on our block list
 					if($this->isBadGp($pas_patient_gp->GP_ID)) {
 						Yii::log('GP on blocklist, ignoring: '.$pas_patient_gp->GP_ID, 'trace');
 						$patient->gp_id = null;
 					} else {
+						// Check if the GP is in openeyes
 						Yii::log('Checking if GP is in openeyes: '.$pas_patient_gp->GP_ID, 'trace');
-						// Check that the GP is in openeyes
 						$gp = Gp::model()->findByAttributes(array('obj_prof' => $pas_patient_gp->GP_ID));
 						if(!$gp) {
 							// GP not in openeyes, pulling from PAS
@@ -212,39 +263,32 @@ class PasService {
 							Yii::log('Patient\'s GP has not changed', 'trace');
 						}
 
-						// Get surgery address and force it into the GP address (temporary work around until we have surgeries
-						if($gp_contact = $gp->contact) {
-							if(!$gp_address = $gp_contact->address) {
-								$gp_address = new Address();
-								$gp_address->parent_class = 'Contact';
-								$gp_address->parent_id = $gp_contact->id;
-							}
-							if($pas_patient_gp->PRACTICE_CODE && $pas_practice = PAS_Practice::model()->findByExternalId($pas_patient_gp->PRACTICE_CODE)) {
-								$gp_address1 = array();
-								if($pas_practice->ADD_NAM) {
-									$gp_address1[] = $this->fixCase(trim($pas_practice->ADD_NAM));
-								}
-								$gp_address1[] = $this->fixCase(trim($pas_practice->ADD_NUM . ' ' . $pas_practice->ADD_ST));
-								$gp_address->address1 = implode("\n",$gp_address1);
-								$gp_address->address2 = $this->fixCase($pas_practice->ADD_DIS);
-								$gp_address->city = $this->fixCase($pas_practice->ADD_TWN);
-								$gp_address->county = $this->fixCase($pas_practice->ADD_CTY);
-								$gp_address->postcode = strtoupper($pas_practice->PC);
-								$gp_address->country_id = 1;
-								$gp_address->save();
-								$gp_contact->primary_phone = $pas_practice->TEL_1;
-								$gp_contact->save();
-							} else if($gp_address->id){
-								// Remove address as can't get surgery address
-								$gp_address->delete();
-								$gp_contact->primary_phone = '';
-								$gp_contact->save();
-							}
-						}
-
 					}
+					
+					// Check if the Practice is in openeyes
+					Yii::log('Checking if Practice is in openeyes: '.$pas_patient_gp->PRACTICE_CODE, 'trace');
+					$practice = Practice::model()->findByAttributes(array('code' => $pas_patient_gp->PRACTICE_CODE));
+					if(!$practice) {
+						// Practice not in openeyes, pulling from PAS
+						Yii::log('Practice not in openeyes: '.$pas_patient_gp->PRACTICE_CODE, 'trace');
+						$practice = new Practice();
+						$practice_assignment = new PasAssignment();
+						$practice_assignment->internal_type = 'Practice';
+						$practice_assignment->external_id = $pas_patient_gp->PRACTICE_CODE;
+						$practice_assignment->external_type = 'PAS_Practice';
+						$this->updatePracticeFromPas($practice, $practice_assignment);
+					}
+
+					// Update/set patient's practice
+					if(!$patient->practice || $patient->practice_id != $practice->id) {
+						Yii::log('Patient\'s practice changed:'.$practice->code, 'trace');
+						$patient->practice_id = $$practice->id;
+					} else {
+						Yii::log('Patient\'s practice has not changed', 'trace');
+					}
+
 				} else {
-					Yii::log('Patient has no GP in PAS', 'info');
+					Yii::log('Patient has no GP/practice in PAS', 'info');
 				}
 
 				if (!$contact = $patient->contact) {
