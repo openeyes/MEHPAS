@@ -145,30 +145,48 @@ class PasService {
 			if($pas_practice = $assignment->external) {
 				Yii::log('Found Pracice in PAS obj_loc:'.$pas_practice->OBJ_LOC, 'trace');
 				$practice->code = $pas_practice->OBJ_LOC;
-				$practice->phone = $pas_practice->TEL_1;
+				if(trim($pas_practice->TEL_1)) {
+					$practice->phone = trim($pas_practice->TEL_1);
+				} else {
+					$practice->phone = 'Unknown';
+				}
 
 				// Address
-				if(!$address = $practice->address) {
-					$address = new Address();
-					$address->parent_class = 'Practice';
-				}
 				$address1 = array();
 				if($pas_practice->ADD_NAM) {
 					$address1[] = $this->fixCase(trim($pas_practice->ADD_NAM));
 				}
 				$address1[] = $this->fixCase(trim($pas_practice->ADD_NUM . ' ' . $pas_practice->ADD_ST));
-				$address->address1 = implode("\n",$address1);
-				$address->address2 = $this->fixCase($pas_practice->ADD_DIS);
-				$address->city = $this->fixCase($pas_practice->ADD_TWN);
-				$address->county = $this->fixCase($pas_practice->ADD_CTY);
-				$address->postcode = strtoupper($pas_practice->PC);
-				$address->country_id = 1;
+				$address1 = implode("\n",$address1);
+				$address2 = $this->fixCase($pas_practice->ADD_DIS);
+				$city = $this->fixCase($pas_practice->ADD_TWN);
+				$postcode = strtoupper($pas_practice->PC);
+				if(trim(implode('',array($address1, $address2, $city, $postcode)))) {
+					if(!$address = $practice->address) {
+						$address = new Address();
+						$address->parent_class = 'Practice';
+					}
+					$address->address1 = $address1;
+					$address->address2 = $address2;
+					$address->city = $city;
+					$address->county = $this->fixCase($pas_practice->ADD_CTY);
+					$address->postcode = $postcode;
+					$address->country_id = 1;
+				} else {
+					// Address doesn't look useful, so we'll delete it
+					if($address = $practice->address) {
+						$address->delete();
+						$address = null;
+					}
+				}
 
 				// Save
 				$practice->save();
 
-				$address->parent_id = $practice->id;
-				$address->save();
+				if($address) {
+					$address->parent_id = $practice->id;
+					$address->save();
+				}
 
 				$assignment->internal_id = $practice->id;
 				$assignment->save();
