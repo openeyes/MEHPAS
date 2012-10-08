@@ -70,7 +70,7 @@ class PasService {
 		if (!$this->available) return;
 
 		try {
-			Yii::log("Pulling data from PAS for Gp: id: {$gp->id}, obj_prof: {$gp->obj_prof}", 'trace');
+			Yii::log("Pulling data from PAS for Gp: id: {$gp->id}, PasAssignment->id: {$assignment->id}, PasAssignment->external_id: {$assignment->external_id}", 'trace');
 			if(!$assignment->external_id) {
 				// Without an external ID we have no way of looking up the gp in PAS
 				throw new CException('GP assignment has no external ID');
@@ -164,7 +164,7 @@ class PasService {
 		if (!$this->isAvailable()) return;
 
 		try {
-			Yii::log("Pulling data from PAS for Practice: id: {$practice->id}, code: {$practice->code}", 'trace');
+			Yii::log("Pulling data from PAS for Practice: Practice->id: {$practice->id}, PasAssignment->id: {$assignment->id}, PasAssignment->external_id: {$assignment->external_id}", 'trace');
 			if(!$assignment->external_id) {
 				// Without an external ID we have no way of looking up the practice in PAS
 				throw new CException('Practice assignment has no external ID');
