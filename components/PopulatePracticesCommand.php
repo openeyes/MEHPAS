@@ -34,7 +34,7 @@ class PopulatePracticesCommand extends CConsoleCommand {
 		->from('element_operation')
 		->join('event', 'event.id = element_operation.event_id')
 		->join('episode', 'episode.id = event.episode_id')
-		->where('element_operation.status = 0')
+		->where('element_operation.status IN (0,2)')
 		->queryColumn();
 		foreach($patient_ids as $patient_id) {
 			$patient = Patient::model()->findByPk($patient_id);
