@@ -70,14 +70,13 @@ class PasService {
 		if (!$this->available) return;
 
 		try {
-			$gp_log = ($gp->id) ? $gp->id : 'NEW';
-			Yii::log('Pulling data from PAS for gp ID:'.$gp_log, 'trace');
+			Yii::log("Pulling data from PAS for Gp: id: {$gp->id}, obj_prof: {$gp->obj_prof}", 'trace');
 			if(!$assignment->external_id) {
 				// Without an external ID we have no way of looking up the gp in PAS
 				throw new CException('GP assignment has no external ID');
 			}
 			if($pas_gp = $assignment->external) {
-				Yii::log('Found GP in PAS obj_prof:'.$pas_gp->OBJ_PROF, 'trace');
+				Yii::log('Found GP in PAS', 'trace');
 				$gp->nat_id = $pas_gp->NAT_ID;
 				$gp->obj_prof = $pas_gp->OBJ_PROF;
 
@@ -141,13 +140,13 @@ class PasService {
 			} else {
 				
 				// GP not in PAS (or at least no active records), so we should remove it and it's assignment from OpenEyes
-				Yii::log('GP not found in PAS: '.$gp->id, 'trace');
+				Yii::log('GP not found in PAS', 'trace');
 				if($assignment->id) {
-					Yii::log('Deleting PasAssignment', 'trace');
+					Yii::log('Deleting PasAssignment: id: '.$assignment->id, 'trace');
 					$assignment->delete();
 				}
 				if($gp->id) {
-					Yii::log('Deleting Gp', 'trace');
+					Yii::log('Deleting Gp: id: '.$gp->id, 'trace');
 					$gp->delete();
 				}
 				
@@ -165,14 +164,13 @@ class PasService {
 		if (!$this->isAvailable()) return;
 
 		try {
-			$practice_log = ($practice->id) ? $practice->id : 'NEW';
-			Yii::log('Pulling data from PAS for practice ID:'.$practice_log, 'trace');
+			Yii::log("Pulling data from PAS for Practice: id: {$practice->id}, code: {$practice->code}", 'trace');
 			if(!$assignment->external_id) {
 				// Without an external ID we have no way of looking up the practice in PAS
 				throw new CException('Practice assignment has no external ID');
 			}
 			if($pas_practice = $assignment->external) {
-				Yii::log('Found Pracice in PAS obj_loc:'.$pas_practice->OBJ_LOC, 'trace');
+				Yii::log('Found Pracice in PAS', 'trace');
 				$practice->code = $pas_practice->OBJ_LOC;
 				if(trim($pas_practice->TEL_1)) {
 					$practice->phone = trim($pas_practice->TEL_1);
@@ -222,13 +220,13 @@ class PasService {
 
 			} else {
 				// Practice not in PAS (or at least no active records), so we should remove it and it's assignment from OpenEyes
-				Yii::log('Practice not found in PAS: '.$practice->id, 'trace');
+				Yii::log('Practice not found in PAS', 'trace');
 				if($assignment->id) {
-					Yii::log('Deleting PasAssignment', 'trace');
+					Yii::log('Deleting PasAssignment: id: '.$assignment->id, 'trace');
 					$assignment->delete();
 				}
 				if($practice->id) {
-					Yii::log('Deleting Practice', 'trace');
+					Yii::log('Deleting Practice: id: '.$practice->id, 'trace');
 					$practice->delete();
 				}
 							
@@ -265,14 +263,13 @@ class PasService {
 		if (!$this->available) return;
 
 		try {
-			$patient_log = ($patient->id) ? $patient->id : 'NEW';
-			Yii::log('Pulling data from PAS for patient ID:'.$patient_log, 'trace');
+			Yii::log("Pulling data from PAS for Patient: Patient->id: {$patient->id}, PasAssignment->id: {$assignment->id}, PasAssignment->external_id: {$assignment->external_id}", 'trace');
 			if(!$assignment->external_id) {
 				// Without an external ID we have no way of looking up the patient in PAS
-				throw new CException('Patient assignment has no external ID');
+				throw new CException("Patient assignment has no external ID: PasAssignment->id: {$assignment->id}");
 			}
 			if($pas_patient = $assignment->external) {
-				Yii::log('Found patient in PAS rm_patient_no:'.$pas_patient->RM_PATIENT_NO, 'trace');
+				Yii::log("Found patient in PAS", 'trace');
 				$patient_attrs = array(
 						'gender' =>$pas_patient->SEX,
 						'dob' => $pas_patient->DATE_OF_BIRTH,
@@ -292,18 +289,19 @@ class PasService {
 				// Get latest GP mapping from PAS
 				$pas_patient_gp = $pas_patient->PatientGp;
 				if($pas_patient_gp) {
+					Yii::log("Patient has GP record: PAS_PatientGps->GP_ID: {$pas_patient_gp->GP_ID}", 'trace');
 					
 					// Check if GP is not on our block list
 					if($this->isBadGp($pas_patient_gp->GP_ID)) {
-						Yii::log('GP on blocklist, ignoring: '.$pas_patient_gp->GP_ID, 'trace');
+						Yii::log("GP on blocklist, ignoring", 'trace');
 						$patient->gp_id = null;
 					} else {
 						// Check if the GP is in openeyes
-						Yii::log('Checking if GP is in openeyes: '.$pas_patient_gp->GP_ID, 'trace');
+						Yii::log("Checking if GP is in openeyes", 'trace');
 						$gp = Gp::model()->findByAttributes(array('obj_prof' => $pas_patient_gp->GP_ID));
 						if(!$gp) {
 							// GP not in openeyes, pulling from PAS
-							Yii::log('GP not in openeyes: '.$pas_patient_gp->GP_ID, 'trace');
+							Yii::log("GP not in openeyes, importing", 'trace');
 							$gp = new Gp();
 							$gp_assignment = new PasAssignment();
 							$gp_assignment->internal_type = 'Gp';
@@ -314,20 +312,20 @@ class PasService {
 
 						// Update/set patient's GP
 						if(!$patient->gp || $patient->gp_id != $gp->id) {
-							Yii::log('Patient\'s GP changed:'.$gp->obj_prof, 'trace');
+							Yii::log("Patient's GP changed", 'trace');
 							$patient->gp_id = $gp->id;
 						} else {
-							Yii::log('Patient\'s GP has not changed', 'trace');
+							Yii::log("Patient's GP has not changed", 'trace');
 						}
 
 					}
 					
 					// Check if the Practice is in openeyes
-					Yii::log('Checking if Practice is in openeyes: '.$pas_patient_gp->PRACTICE_CODE, 'trace');
+					Yii::log("Checking if Practice is in openeyes: PAS_PatientGps->PRACTICE_CODE: {$pas_patient_gp->PRACTICE_CODE}", 'trace');
 					$practice = Practice::model()->findByAttributes(array('code' => $pas_patient_gp->PRACTICE_CODE));
 					if(!$practice) {
 						// Practice not in openeyes, pulling from PAS
-						Yii::log('Practice not in openeyes: '.$pas_patient_gp->PRACTICE_CODE, 'trace');
+						Yii::log("Practice not in openeyes", 'trace');
 						$practice = new Practice();
 						$practice_assignment = new PasAssignment();
 						$practice_assignment->internal_type = 'Practice';
@@ -338,14 +336,14 @@ class PasService {
 
 					// Update/set patient's practice
 					if(!$patient->practice || $patient->practice_id != $practice->id) {
-						Yii::log('Patient\'s practice changed:'.$practice->code, 'trace');
+						Yii::log("Patient's practice changed", 'trace');
 						$patient->practice_id = $practice->id;
 					} else {
-						Yii::log('Patient\'s practice has not changed', 'trace');
+						Yii::log("Patient's practice has not changed", 'trace');
 					}
 
 				} else {
-					Yii::log('Patient has no GP/practice in PAS', 'info');
+					Yii::log("Patient has no GP/practice in PAS", 'info');
 				}
 
 				if (!$contact = $patient->contact) {
@@ -378,7 +376,7 @@ class PasService {
 					foreach($pas_patient->addresses as $pas_address) {
 
 						// Match an address
-						Yii::log("looking for patient address:".$pas_address->POSTCODE, 'trace');
+						Yii::log("Looking for patient address: PAS_PatientAddress->POSTCODE: ".$pas_address->POSTCODE, 'trace');
 						$matched_clause = ($matched_address_ids) ? ' AND id NOT IN ('.implode(',',$matched_address_ids).')' : '';
 						$address = Address::model()->find(array(
 								'condition' => "parent_id = :patient_id AND parent_class = 'Patient' AND REPLACE(postcode,' ','') = :postcode" . $matched_clause,
@@ -387,7 +385,7 @@ class PasService {
 
 						// Check if we have an address (that we haven't already matched)
 						if(!$address) {
-							Yii::log("patient address not found, creating", 'trace');
+							Yii::log("Patient address not found, creating", 'trace');
 							$address = new Address;
 							$address->parent_id = $patient->id;
 							$address->parent_class = 'Patient';
@@ -404,12 +402,12 @@ class PasService {
 							'condition' => "parent_id = :patient_id AND parent_class = 'Patient' AND id NOT IN($matched_string)",
 							'params' => array(':patient_id' => $patient->id),
 					));
-					Yii::log("$orphaned_addresses orphaned patient addresses deleted", 'trace');
+					Yii::log("$orphaned_addresses orphaned patient addresses were deleted", 'trace');
 
 				}
 
 			} else {
-				Yii::log('Patient not found in PAS: '.$patient->id, 'info');
+				Yii::log('Patient not found in PAS', 'info');
 			}
 		} catch (CDbException $e) {
 			$this->handlePASException($e);
