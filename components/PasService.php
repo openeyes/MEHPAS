@@ -141,11 +141,13 @@ class PasService {
 			} else {
 				
 				// GP not in PAS (or at least no active records), so we should remove it and it's assignment from OpenEyes
-				Yii::log('GP not found in PAS: '.$gp->id.', deleting', 'trace');
+				Yii::log('GP not found in PAS: '.$gp->id, 'trace');
 				if($assignment->id) {
+					Yii::log('Deleting PasAssignment', 'trace');
 					$assignment->delete();
 				}
 				if($gp->id) {
+					Yii::log('Deleting Gp', 'trace');
 					$gp->delete();
 				}
 				
@@ -220,14 +222,16 @@ class PasService {
 
 			} else {
 				// Practice not in PAS (or at least no active records), so we should remove it and it's assignment from OpenEyes
-				Yii::log('Practice not found in PAS: '.$practice->id.', deleting', 'trace');
+				Yii::log('Practice not found in PAS: '.$practice->id, 'trace');
 				if($assignment->id) {
+					Yii::log('Deleting PasAssignment', 'trace');
 					$assignment->delete();
 				}
 				if($practice->id) {
+					Yii::log('Deleting Practice', 'trace');
 					$practice->delete();
 				}
-			
+							
 			}
 		} catch (CDbException $e) {
 			$this->handlePASException($e);
