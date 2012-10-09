@@ -146,6 +146,15 @@ class PasService {
 					$assignment->delete();
 				}
 				if($gp->id) {
+					Yii::log('Removing Gp association from patients', 'trace');
+					$patients = Patient::model()->noPas()->findAll('gp_id = :gp_id', array(':gp_id' => $gp->id));
+					$patients_updated = 0;
+					foreach($patients as $patient) {
+						$patient->gp_id = null;
+						$patient->save();
+						$patients_updated++;
+					}
+					Yii::log("Updated $patients_updated patients", 'trace');
 					Yii::log('Deleting Gp: id: '.$gp->id, 'trace');
 					$gp->delete();
 				}
@@ -226,6 +235,15 @@ class PasService {
 					$assignment->delete();
 				}
 				if($practice->id) {
+					Yii::log('Removing Practice association from patients', 'trace');
+					$patients = Patient::model()->noPas()->findAll('practice_id = :practice_id', array(':practice_id' => $practice->id));
+					$patients_updated = 0;
+					foreach($patients as $patient) {
+						$patient->practice_id = null;
+						$patient->save();
+						$patients_updated++;
+					}
+					Yii::log("Updated $patients_updated patients", 'trace');
 					Yii::log('Deleting Practice: id: '.$practice->id, 'trace');
 					$practice->delete();
 				}
@@ -311,7 +329,7 @@ class PasService {
 						}
 
 						// Update/set patient's GP
-						if(!$patient->gp || $patient->gp_id != $gp->id) {
+						if($patient->gp_id != $gp->id) {
 							Yii::log("Patient's GP changed", 'trace');
 							$patient->gp_id = $gp->id;
 						} else {
@@ -335,7 +353,7 @@ class PasService {
 					}
 
 					// Update/set patient's practice
-					if(!$patient->practice || $patient->practice_id != $practice->id) {
+					if($patient->practice_id != $practice->id) {
 						Yii::log("Patient's practice changed", 'trace');
 						$patient->practice_id = $practice->id;
 					} else {
