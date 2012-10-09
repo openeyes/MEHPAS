@@ -361,7 +361,7 @@ class PasService {
 					}
 
 				} else {
-					Yii::log("Patient has no GP/practice in PAS", 'info');
+					Yii::log("Patient has no GP/practice in PAS", 'trace');
 				}
 
 				if (!$contact = $patient->contact) {
@@ -425,7 +425,7 @@ class PasService {
 				}
 
 			} else {
-				Yii::log('Patient not found in PAS', 'info');
+				Yii::log('Patient not found in PAS', 'trace');
 			}
 		} catch (CDbException $e) {
 			$this->handlePASException($e);
