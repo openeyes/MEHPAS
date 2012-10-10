@@ -148,7 +148,7 @@ class PasService {
 					}
 					if($gp->id) {
 						Yii::log('Removing Gp association from patients', 'trace');
-						$patients = Patient::model()->noPas()->findAll('gp_id = :gp_id', array(':gp_id' => $gp->id));
+						$patients = Patient::noPasModel()->findAll('gp_id = :gp_id', array(':gp_id' => $gp->id));
 						$patients_updated = 0;
 						foreach($patients as $patient) {
 							$patient->gp_id = null;
@@ -240,7 +240,7 @@ class PasService {
 					}
 					if($practice->id) {
 						Yii::log('Removing Practice association from patients', 'trace');
-						$patients = Patient::model()->noPas()->findAll('practice_id = :practice_id', array(':practice_id' => $practice->id));
+						$patients = Patient::noPasModel()->findAll('practice_id = :practice_id', array(':practice_id' => $practice->id));
 						$patients_updated = 0;
 						foreach($patients as $patient) {
 							$patient->practice_id = null;
