@@ -334,6 +334,11 @@ class PasService {
 							$gp_assignment->external_id = $pas_patient_gp->GP_ID;
 							$gp_assignment->external_type = 'PAS_Gp';
 							$gp = $this->updateGpFromPas($gp, $gp_assignment);
+						} else if(!$gp->refresh()) {
+							// GP has been deleted (probably by an observer)
+							// FIXME: There must be a better way of dealing with this
+							Yii::log("GP was deleted after find", 'trace');
+							$gp = null;
 						}
 
 						// Update/set patient's GP
@@ -359,6 +364,11 @@ class PasService {
 						$practice_assignment->external_id = $pas_patient_gp->PRACTICE_CODE;
 						$practice_assignment->external_type = 'PAS_Practice';
 						$practice = $this->updatePracticeFromPas($practice, $practice_assignment);
+					} else if(!$practice->refresh()) {
+						// Practice has been deleted (probably by an observer)
+						// FIXME: There must be a better way of dealing with this
+						Yii::log("Practice was deleted after find", 'trace');
+						$practice = null;
 					}
 
 					// Update/set patient's practice
