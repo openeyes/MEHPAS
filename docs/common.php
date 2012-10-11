@@ -26,6 +26,12 @@ return array(
 												'method' => 'updateGpFromPas',
 										),
 								),
+								'practice_after_find' => array(
+										'update_from_pas' => array(
+												'class' => 'PasObserver',
+												'method' => 'updatePracticeFromPas',
+										),
+								),
 								/* Referral code is currently broken
 								'episode_after_create' => array(
 										'fetch_pas_referral' => array(

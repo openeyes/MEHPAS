@@ -49,6 +49,13 @@ class PAS_Practice extends MultiActiveRecord {
 	}
 
 	/**
+	 * @return array primary key for the table
+	 */
+	public function primaryKey() {
+		return array('OBJ_TYPE','OBJ_LOC','DATE_FR');
+	}
+
+	/**
 	 * @return array validation rules for model attributes.
 	 */
 	public function rules() {
@@ -71,6 +78,22 @@ class PAS_Practice extends MultiActiveRecord {
 	 */
 	public function attributeLabels() {
 		return array();
+	}
+
+	/**
+	 * Find Practice by external ID (obj_loc)
+	 * Table has no primary key, so we need to fetch the record with the most recent date_fr and
+	 * exclude records with a date_to < today
+	 * @param unknown_type $id
+	 */
+	public function findByExternalId($id) {
+		return $this->find(array(
+				'condition' => 'OBJ_LOC = :practice_id AND OBJ_TYPE = \'SURG\' AND ("DATE_TO" IS NULL OR "DATE_TO" >= SYSDATE) AND ("DATE_FR" IS NULL OR "DATE_FR" <= SYSDATE)',
+				'order' => 'DATE_FR DESC',
+				'params' => array(
+						':practice_id' => $id
+				),
+		));
 	}
 
 	/**
