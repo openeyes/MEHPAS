@@ -557,8 +557,10 @@ class PasService {
 			foreach ($results as $result) {
 
 				// See if the patient is in openeyes, if not then fetch from PAS
+				//Yii::log("Fetching assignment for patient: rm_patient_no:" . $result['RM_PATIENT_NO'], 'trace');
 				$patient_assignment = $this->findPatientAssignment($result['RM_PATIENT_NO'], $result['NUM_ID_TYPE'] . $result['NUMBER_ID']);
 				if($patient_assignment) {
+					//Yii::log("Got assignment",'trace');
 					$patient = $patient_assignment->internal;
 
 					// Check that patient has an address
@@ -628,11 +630,17 @@ class PasService {
 	 * @return PasAssignment
 	 */
 	protected function findPatientAssignment($rm_patient_no, $hos_num) {
+		//Yii::log('Getting assignment','trace');
 		$assignment = PasAssignment::model()->findByExternal('PAS_Patient', $rm_patient_no);
 		if($assignment && $assignment->isStale()) {
+			//Yii::log('Got assignment','trace');
 			// Patient is in OpenEyes and has an existing assignment
-			$this->updatePatientFromPas($assignment->internal, $assignment);
+			$patient_id = $assignment->internal_id;
+			$patient = Patient::model()->noPas()->findByPk($patient_id);
+			$this->updatePatientFromPas($patient, $assignment);
+			//Yii::log('Updated from PAS','trace');
 		} else if(!$assignment) {
+			//Yii::log('No assignment','trace');
 			// Patient is not in OpenEyes
 			$patient = new Patient();
 			$assignment = new PasAssignment();
@@ -640,6 +648,7 @@ class PasService {
 			$assignment->external_type = 'PAS_Patient';
 			$assignment->internal_type = 'Patient';
 			$this->updatePatientFromPas($patient, $assignment);
+			//Yii::log('Updated from PAS','trace');
 
 			if (Yii::app()->params['mehpas_legacy_letters']) {
 				Yii::import('application.modules.OphLeEpatientletter.models.*');
