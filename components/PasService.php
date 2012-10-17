@@ -676,9 +676,9 @@ class PasService {
 			$propertyNumber = '';
 		}
 
-		// Address1 - Assume PAS ADDR1 is valid
-		if (isset($data->ADDR1)) {
-			$string = trim($data->ADDR1);
+		// Address1
+		$string = trim($data->ADDR1);
+		if ($string) {
 
 			// Remove any duplicate property name or number from ADDR1
 			if (strlen($propertyName) > 0) {
@@ -698,15 +698,16 @@ class PasService {
 			// Replace any full stops after street numbers with commas
 			$string = preg_replace('/([0-9])\./', '\1,', $string);
 
-			// That will probably do
-			$address1 = array();
-			if($propertyName) {
-				$address1[] = trim($propertyName);
-			}
-			$address1[] = trim($propertyNumber . ' ' . $string);
-
-			$address1 = implode("\n", $address1);
 		}
+
+		// Combine property name, number and first line
+		$address1 = array();
+		if($propertyName) {
+			$address1[] = trim($propertyName);
+		}
+		$address1[] = trim($propertyNumber . ' ' . $string);
+
+		$address1 = implode("\n", $address1);
 
 		// Create array of remaining address lines, from last to first
 		$addressLines = array();
