@@ -437,7 +437,11 @@ class PasService {
 							'condition' => "parent_id = :patient_id AND parent_class = 'Patient' AND id NOT IN($matched_string)",
 							'params' => array(':patient_id' => $patient->id),
 					));
-					Yii::log("$orphaned_addresses orphaned patient addresses were deleted", 'trace');
+					$matched_addresses = count($matched_address_ids);
+					if($orphaned_addresses) {
+						Yii::log("$orphaned_addresses orphaned patient addresses were deleted", 'trace');
+					}
+					Yii::log("Patient has $matched_addresses valid addresses", 'trace');
 
 				}
 
