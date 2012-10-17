@@ -140,22 +140,20 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 					$results['updated']++;
 				}
 			} else {
-				// No match, let's check to see if patients using this gp are stale
-				$stale_patients = Patient::model()->findAllByAttributes(array('gp_id' => $gp_id));
-				$still_used = false;
-				foreach($stale_patients as $patient) {
+				// GP is not in PAS, let's remove GP and update associated patients
+				$gp_patients = Patient::model()->findAllByAttributes(array('gp_id' => $gp_id));
+				foreach($gp_patients as $patient) {
 					if($patient->gp_id == $gp_id) {
-						$still_used = true;
+						$patient->gp_id = null;
+						$patient->save();
 					}
 				}
-				if($still_used) {
-					$results['skipped']++;
-					echo "Cannot find match in PAS for obj_prof $obj_prof, cannot create assignment\n";
-				} else {
-					echo "Deleting unused GP\n";
-					$results['removed']++;
-					Gp::model()->deleteByPk($gp_id);
+				echo "Deleting invalid GP\n";
+				if($assignment = PasAssignment::model()->find('internal_id=? and internal_type=?',array($gp_id,'Gp'))) {
+					$assignment->delete();
 				}
+				Gp::model()->deleteByPk($gp_id);
+				$results['removed']++;
 			}
 
 		}
@@ -336,22 +334,20 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 					$results['updated']++;
 				}
 			} else {
-				// No match, let's check to see if patients using this practice are stale
-				$stale_patients = Patient::model()->findAllByAttributes(array('practice_id' => $practice_id));
-				$still_used = false;
-				foreach($stale_patients as $patient) {
-					if($patient->practice_id == $practice_id) {
-						$still_used = true;
-					}
-				}
-				if($still_used) {
-					$results['skipped']++;
-					echo "Cannot find match in PAS for code $code, cannot create assignment\n";
-				} else {
-					echo "Deleting unused practice\n";
-					$results['removed']++;
-					Practice::model()->deleteByPk($practice_id);
-				}
+                                // Practice is not in PAS, let's remove Practice and update associated patients
+                                $practice_patients = Patient::model()->findAllByAttributes(array('practice_id' => $practice_id));
+                                foreach($practice_patients as $patient) {
+                                        if($patient->practice_id == $practice_id) {
+                                                $patient->practice_id = null;
+                                                $patient->save();
+                                        }
+                                }
+                                echo "Deleting invalid Practice\n";
+                                if($assignment = PasAssignment::model()->find('internal_id=? and internal_type=?',array($practice_id,'Practice'))) {
+                                        $assignment->delete();
+                                }
+                                Practice::model()->deleteByPk($practice_id);
+                                $results['removed']++;
 			}
 
 		}

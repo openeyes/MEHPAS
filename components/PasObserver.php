@@ -30,6 +30,7 @@ class PasObserver {
 		} else if(!$assignment) {
 
 			// Error, missing assignment
+			Yii::log('Cannot find Patient assignment: id: '.$patient->id, 'trace');
 			if (get_class(Yii::app()) == 'CConsoleApplication') {
 				echo "Warning: unable to update patient $patient->hos_num from PAS (merged patient)\n";
 			} else {
@@ -65,6 +66,7 @@ class PasObserver {
 		} else if(!$assignment) {
 
 			// Error, missing assignment
+			Yii::log('Cannot find Gp assignment: id: '.$gp->id, 'trace');
 			if (get_class(Yii::app()) == 'CConsoleApplication') {
 				echo "Warning: unable to update gp $gp->obj_prof from PAS\n";
 			} else {
@@ -99,6 +101,7 @@ class PasObserver {
 		} else if(!$assignment) {
 				
 			// Error, missing assignment
+			Yii::log('Cannot find Practice assignment: id: '.$practice->id, 'trace');
 			if (get_class(Yii::app()) == 'CConsoleApplication') {
 				echo "Warning: unable to update practice $practice->code from PAS\n";
 			} else {
