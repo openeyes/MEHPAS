@@ -74,11 +74,17 @@ class PAS_PatientGps extends MultiActiveRecord {
 	 */
 	public function relations() {
 		return array(
-				'Gp' => array(self::HAS_ONE, 'PAS_Gp', 'OBJ_PROF',
-						// DATE_START is the tiebreaker
+				'Gp' => array(self::BELONGS_TO, 'PAS_Gp', 'GP_ID',
+						// DATE_FR is the tiebreaker
 						'order' => 'DATE_FR DESC',
 						// Exclude expired and future gps
 						'condition' => '("Gp"."DATE_TO" IS NULL OR "Gp"."DATE_TO" >= SYSDATE) AND ("Gp"."DATE_FR" IS NULL OR "Gp"."DATE_FR" <= SYSDATE)',
+				),
+				'Practice' => array(self::BELONGS_TO, 'PAS_Practice', 'PRACTICE_CODE',
+						// DATE_FR is the tiebreaker
+						'order' => 'DATE_FR DESC',
+						// Exclude expired and future gps
+						'condition' => '("Practice"."DATE_TO" IS NULL OR "Practice"."DATE_TO" >= SYSDATE) AND ("Practice"."DATE_FR" IS NULL OR "Practice"."DATE_FR" <= SYSDATE)',
 				),
 		);
 	}

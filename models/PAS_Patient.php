@@ -144,19 +144,12 @@ class PAS_Patient extends MultiActiveRecord {
 						'condition' => '("addresses"."DATE_END" IS NULL OR "addresses"."DATE_END" >= SYSDATE) AND ("addresses"."DATE_START" IS NULL OR "addresses"."DATE_START" <= SYSDATE)',
 				),
 				'address' => array(self::HAS_ONE, 'PAS_PatientAddress', 'RM_PATIENT_NO',
-						// Address preference is: addresses which are not expired, Home > Correspond > other, and then DATE_START is the tiebreaker
-						// Ideally we should not return an expired address here, but expired is better than none (normally an admin error) provided it is flagged as such in the UI
+						// Address preference is: Home > Correspond > other, and then DATE_START is the tiebreaker
 						'order' => '
-						CASE WHEN
-						("address"."DATE_END" is NULL OR "address"."DATE_END" > SYSDATE)
-						AND
-						("address"."DATE_START" is NULL OR "address"."DATE_START" < SYSDATE)
-						THEN 0
-						ELSE 1
-						END,
-						DECODE("address"."ADDR_TYPE", \'H\', 1, \'C\', 2, 3),
-						"address"."DATE_START" DESC
+							DECODE("address"."ADDR_TYPE", \'H\', 1, \'C\', 2, 3),
+							"address"."DATE_START" DESC
 						',
+						'condition' => '("address"."DATE_END" IS NULL OR "address"."DATE_END" >= SYSDATE) AND ("address"."DATE_START" IS NULL OR "address"."DATE_START" <= SYSDATE)',
 				),
 				'PatientGp' => array(self::HAS_ONE, 'PAS_PatientGps', 'RM_PATIENT_NO',
 						// DATE_FROM is the tiebreaker
