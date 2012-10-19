@@ -130,6 +130,8 @@ class PasService {
 					if($address) {
 						$address->parent_id = $contact->id;
 						$address->save();
+					} else {
+						Yii::log("GP has no address|id: {$gp->id}, obj_prof: {$gp->obj_prof}", 'warning', 'application.action');
 					}
 	
 					$assignment->internal_id = $gp->id;
@@ -223,6 +225,8 @@ class PasService {
 					if($address) {
 						$address->parent_id = $practice->id;
 						$address->save();
+					} else {
+						Yii::log("Practice has no address|id: {$practice->id}, code: {$practice->code}", 'warning', 'application.action');
 					}
 	
 					$assignment->internal_id = $practice->id;
@@ -348,6 +352,11 @@ class PasService {
 						}
 
 					}
+					if(!$patient->gp_id && $pas_patient_gp->GP_ID) {
+						Yii::log("Patient GP invalid or not found in PAS|id: {$patient->id}, hos_num: {$patient->hos_num}, gp_id: {$pas_patient_gp->GP_ID}", 'warning', 'application.action');
+					} else if(!$patient->gp_id) {
+						Yii::log("Patient has no GP|id: {$patient->id}, hos_num: {$patient->hos_num}", 'warning', 'application.action');
+					}
 					
 					// Check if the Practice is in openeyes
 					Yii::log("Checking if Practice is in openeyes: PAS_PatientGps->PRACTICE_CODE: {$pas_patient_gp->PRACTICE_CODE}", 'trace');
@@ -376,9 +385,16 @@ class PasService {
 					} else {
 						Yii::log("Patient's practice has not changed", 'trace');
 					}
-
+					
+					if(!$patient->practice_id && $pas_patient_gp->PRACTICE_CODE) {
+						Yii::log("Patient Practice invalid or not found in PAS|id: {$patient->id}, hos_num: {$patient->hos_num}, practice_code: {$pas_patient_gp->PRACTICE_CODE}", 'warning', 'application.action');
+					} else if(!$patient->practice_id) {
+						Yii::log("Patient has no Practice|id: {$patient->id}, hos_num: {$patient->hos_num}", 'warning', 'application.action');
+					}
+					
 				} else {
 					Yii::log("Patient has no GP/practice in PAS", 'trace');
+					Yii::log("Patient has no GP or Practice|id: {$patient->id}, hos_num: {$patient->hos_num}", 'warning', 'application.action');
 				}
 
 				if (!$contact = $patient->contact) {
