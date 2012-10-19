@@ -681,8 +681,8 @@ class PasService {
 		$postcode = '';
 		$town = '';
 
-		$propertyName = empty($data->PROPERTY_NAME) ? '' : trim($data->PROPERTY_NAME);
-		$propertyNumber = empty($data->PROPERTY_NO) ? '' : trim($data->PROPERTY_NO);
+		$propertyName = trim($data->PROPERTY_NAME);
+		$propertyNumber = trim($data->PROPERTY_NO);
 
 		// Make sure they are not the same!
 		if (strcasecmp($propertyName, $propertyNumber) == 0) {
@@ -690,55 +690,47 @@ class PasService {
 		}
 
 		// Address1
-		$string = trim($data->ADDR1);
-		if ($string) {
+		$addr1 = trim($data->ADDR1);
+		if ($addr1) {
 
 			// Remove any duplicate property name or number from ADDR1
 			if (strlen($propertyName) > 0) {
 				// Search plain, with comma, and with full stop
 				$needles = array("{$propertyName},","{$propertyName}.",$propertyName);
-				$string = trim(str_replace($needles, '', $string));
+				$addr1 = trim(str_replace($needles, '', $addr1));
 			}
 			if (strlen($propertyNumber) > 0) {
 				// Search plain, with comma, and with full stop
 				$needles = array("{$propertyNumber},","{$propertyNumber}.",$propertyNumber);
-				$string = trim(str_replace($needles, '', $string));
+				$addr1 = trim(str_replace($needles, '', $addr1));
 			}
 
 			// Make sure street number has a comma and space after it
-			$string = preg_replace('/([0-9]) /', '\1, ', $string);
+			$addr1 = preg_replace('/([0-9]) /', '\1, ', $addr1);
 
 			// Replace any full stops after street numbers with commas
-			$string = preg_replace('/([0-9])\./', '\1,', $string);
+			$addr1 = preg_replace('/([0-9])\./', '\1,', $addr1);
 
 		}
 
 		// Combine property name, number and first line
 		$address1 = array();
 		if($propertyName) {
-			$address1[] = trim($propertyName);
+			$address1[] = $propertyName;
 		}
-		$address1[] = trim($propertyNumber . ' ' . $string);
+		if($propertyNumber || $addr1) {
+			$address1[] = trim($propertyNumber . ' ' . $addr1);
+		}
 
 		$address1 = implode("\n", $address1);
 
 		// Create array of remaining address lines, from last to first
 		$addressLines = array();
-		if (!empty($data->POSTCODE)) {
-			$addressLines[] = $data->POSTCODE;
-		}
-		if (!empty($data->ADDR5)) {
-			$addressLines[] = $data->ADDR5;
-		}
-		if (!empty($data->ADDR4)) {
-			$addressLines[] = $data->ADDR4;
-		}
-		if (!empty($data->ADDR3)) {
-			$addressLines[] = $data->ADDR3;
-		}
-		if (!empty($data->ADDR2)) {
-			$addressLines[] = $data->ADDR2;
-		}
+		foreach(array('POSTCODE','ADDR5','ADDR4','ADDR3','ADDR2') as $address_line) {
+			if($address_line_content = trim($data->{$address_line})) {
+				$addressLines[] = $address_line_content;
+			}
+		} 
 
 		// Instantiate a postcode utility object
 		$postCodeUtility = new PostCodeUtility();
