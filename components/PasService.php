@@ -509,7 +509,7 @@ class PasService {
 			}
 
 			if (empty($data['nhs_num'])) {
-				$whereSql .= " AND LENGTH(TRIM(TRANSLATE(num_id_type, '0123456789', ' '))) is null";
+				$whereSql .= " AND LENGTH(TRIM(TRANSLATE(n.num_id_type, '0123456789', ' '))) is null";
 			}
 
 			$command = Yii::app()->db_pas->createCommand()
