@@ -495,6 +495,11 @@ class PasService {
 				$whereParams[':hos_num'] = $hosNum;
 			}
 
+			if (!empty($data['nhs_num'])) {
+				$whereSql .= " AND n.num_id_type = 'NHS' and n.number_id = :nhs_num";
+				$whereParams[':nhs_num'] = $data['nhs_num'];
+			}
+
 			// Name
 			if (!empty($data['first_name']) && !empty($data['last_name'])) {
 				$whereSql .= " AND p.RM_PATIENT_NO IN (SELECT RM_PATIENT_NO FROM SILVER.SURNAME_IDS WHERE Surname_Type = 'NO' AND ((Name1 = :first_name
@@ -503,12 +508,16 @@ class PasService {
 				$whereParams[':last_name'] = $data['last_name'];
 			}
 
+			if (empty($data['nhs_num'])) {
+				$whereSql .= " AND LENGTH(TRIM(TRANSLATE(num_id_type, '0123456789', ' '))) is null";
+			}
+
 			$command = Yii::app()->db_pas->createCommand()
 			->select('COUNT(*) as count')
 			->from('SILVER.PATIENTS P')
 			->join('SILVER.SURNAME_IDS S', 'S.rm_patient_no = P.rm_patient_no')
 			->join('SILVER.NUMBER_IDS N', 'N.rm_patient_no = P.rm_patient_no')
-			->where("surname_type = 'NO' $whereSql AND LENGTH(TRIM(TRANSLATE(num_id_type, '0123456789', ' '))) is null", $whereParams);
+			->where("surname_type = 'NO' $whereSql", $whereParams);
 			foreach ($command->queryAll() as $results) $this->num_results = $results['COUNT'];
 
 			$offset = (($page-1) * $num_results) + 1;
@@ -557,7 +566,6 @@ class PasService {
 			LEFT OUTER JOIN SILVER.NUMBER_IDS n2 ON n2.rm_patient_no = p.rm_patient_no
 			AND n2.NUM_ID_TYPE = 'NHS'
 			WHERE ( s.surname_type = 'NO' $whereSql )
-			AND LENGTH(TRIM(TRANSLATE(n.num_id_type, '0123456789', ' '))) is null
 			ORDER BY $sort_by $sort_dir
 			) a
 			where rownum <= $limit

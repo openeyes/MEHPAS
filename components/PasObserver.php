@@ -119,7 +119,11 @@ class PasObserver {
 		$pas_service = new PasService();
 		if($pas_service->isAvailable()) {
 			$data = $params['params'];
-			$data['hos_num'] = $params['patient']->hos_num;
+			if ($params['patient']->hos_num) {
+				$data['hos_num'] = $params['patient']->hos_num;
+			} else {
+				$data['nhs_num'] = $params['patient']->nhs_num;
+			}
 			$params['criteria'] = $pas_service->search($data, $params['params']['pageSize'], $params['params']['currentPage']);
 		} else {
 			$pas_service->flashPasDown();
