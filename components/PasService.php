@@ -549,7 +549,7 @@ class PasService {
 					break;
 				case 'NHS_NUM*1':
 					// nhs_num
-					$sort_by = "NHS_NUMBER";
+					$sort_by = "n.NUM_ID_TYPE||n.NUMBER_ID";
 					break;
 			}
 
