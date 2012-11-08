@@ -520,7 +520,7 @@ class PasService {
 			->where("surname_type = 'NO' $whereSql", $whereParams);
 			foreach ($command->queryAll() as $results) $this->num_results = $results['COUNT'];
 
-			$offset = (($page-1) * $num_results) + 1;
+			$offset = ($page * $num_results) + 1;
 			$limit = $offset + $num_results - 1;
 			switch ($data['sortBy']) {
 				case 'HOS_NUM*1':
