@@ -604,7 +604,7 @@ class PasService {
 
 			}
 
-			switch ($_GET['sort_by']) {
+			switch (@$_GET['sort_by']) {
 				case 0:
 					// hos_num
 					$sort_by = "hos_num";
@@ -633,6 +633,9 @@ class PasService {
 					// nhs_num
 					$sort_by = "nhs_num";
 					break;
+				default:
+					$sort_by = 'hos_num';
+					
 			}
 
 			// Collect all the patients we just created
