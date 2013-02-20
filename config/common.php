@@ -33,28 +33,33 @@ return array(
 										),
 								),
 								/* Referral code is currently broken
-								'episode_after_create' => array(
-										'fetch_pas_referral' => array(
-												'class' => 'PasObserver',
-												'method' => 'fetchReferralFromPas',
-										),
-								),
+								 'episode_after_create' => array(
+								 		'fetch_pas_referral' => array(
+								 				'class' => 'PasObserver',
+								 				'method' => 'fetchReferralFromPas',
+								 		),
+								 ),
 								*/
 						),
 				),
-                                'db_pas' => array(
-                                                'class' => 'CDbConnection',
-                                                'schemaCachingDuration' => 300,
-                                                // Make oracle default date format the same as MySQL (default is DD-MMM-YY)
-                                                'initSQLs' => array(
-                                                                'ALTER SESSION SET NLS_DATE_FORMAT = \'YYYY-MM-DD\'',
-                                                ),
-                                                // Don't autoconnect, as many pages don't need access to PAS
-                                                'autoConnect' => false,
-                                ),
+				'db_pas' => array(
+						'class' => 'CDbConnection',
+						//'connectionString' => 'oci:dbname=remotename:1521/database',
+						//'username' => 'root',
+						//'password' => '',
+						'schemaCachingDuration' => 300,
+						// Make oracle default date format the same as MySQL (default is DD-MMM-YY)
+						'initSQLs' => array(
+								'ALTER SESSION SET NLS_DATE_FORMAT = \'YYYY-MM-DD\'',
+						),
+						// Don't autoconnect, as many pages don't need access to PAS
+						'autoConnect' => false,
+				),
 		),
 		'params'=>array(
+				'mehpas_enabled' => false, // Disabled by default
 				'mehpas_cache_time' => 300,
+				'mehpas_bad_gps' => array(),
 		),
 );
 
