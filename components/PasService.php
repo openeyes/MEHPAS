@@ -701,13 +701,6 @@ class PasService {
 	 */
 	protected function updateAddress($address, $data) {
 
-		$address1 = '';
-		$address2 = '';
-		$city = '';
-		$county = '';
-		$postcode = '';
-		$town = '';
-
 		$propertyName = trim($data->PROPERTY_NAME);
 		$propertyNumber = trim($data->PROPERTY_NO);
 
@@ -759,76 +752,114 @@ class PasService {
 			}
 		} 
 
-		// Instantiate a postcode utility object
-		$postCodeUtility = new PostCodeUtility();
-
-		// Set flags and default values
-		$postCodeFound = false;
-		$postCodeOuter = '';
-		$townFound = false;
-		$countyFound = false;
-		$address2 = '';
-
-		// Go through array looking for likely candidates for postcode, town/city and county
-		for ($index = 0; $index < count($addressLines); $index++) {
-			// Is element a postcode? (Postcodes may exist in other address lines)
-			if ($postCodeArray = $postCodeUtility->parsePostCode($addressLines[$index])) {
-				if (!$postCodeFound) {
-					$postCodeFound = true;
-					$postcode = $postCodeArray['full'];
-					$postCodeOuter = $postCodeArray['outer'];
-				}
-			} else { // Otherwise a string
-				// Last in (inverted array) is a non-postcode, non-city second address line
-				if ($townFound) {
-					$address2 = trim($addressLines[$index]);
-				}
-
-				// County?
-				if (!$countyFound) {
-					if ($postCodeUtility->isCounty($addressLines[$index])) {
-						$countyFound = true;
-						$county = trim($addressLines[$index]);
-					}
-				}
-
-				// Town?
-				if (!$townFound) {
-					if ($postCodeUtility->isTown($addressLines[$index])) {
-						$townFound = true;
-						$town = trim($addressLines[$index]);
-					}
-				}
-			}
+		// See if we can find a country
+		$country = '';
+		$index = 0;
+		while(!$country && $index < count($addressLines)) {
+			$country = Country::model()->findByAttributes(array('name' => $addressLines[$index]));
+			$index++;
 		}
-
-		// If no town or county found, get them from postcode data if available, otherwise fall back to best guess
-		if ($postCodeFound) {
-			if (!$countyFound) $county = $postCodeUtility->countyForOuterPostCode($postCodeOuter);
-			if (!$townFound) $town = $postCodeUtility->townForOuterPostCode($postCodeOuter);
+		if($country) {
+			// Found non UK country, so we will remove the line from the address
+			unset($addressLines[$index-1]);
 		} else {
-			// Number of additional address lines
-			$extraLines = count($addressLines) - 1;
-			if ($extraLines > 1) {
-				$county = trim($addressLines[0]);
-				$town = trim($addressLines[1]);
-			} elseif ($extraLines > 0) {
-				$town = trim($addressLines[0]);
+			// Cannot find country, so we assume it is UK
+			$country = Country::model()->findByAttributes(array('name' => 'United Kingdom'));
+		}
+		
+		if($country->name == 'United Kingdom') {
+			// We've got a UK address, so we'll see if we can parse the remaining tokens,
+
+			// Instantiate a postcode utility object
+			$postCodeUtility = new PostCodeUtility();
+			
+			// Set flags and default values
+			$postCodeFound = false;
+			$postCodeOuter = '';
+			$townFound = false;
+			$countyFound = false;
+			$address2 = '';
+			$town = '';
+			$county = '';
+			$postcode = '';
+			
+			// Go through array looking for likely candidates for postcode, town/city and county
+			for ($index = 0; $index < count($addressLines); $index++) {
+				// Is element a postcode? (Postcodes may exist in other address lines)
+				if ($postCodeArray = $postCodeUtility->parsePostCode($addressLines[$index])) {
+					if (!$postCodeFound) {
+						$postCodeFound = true;
+						$postcode = $postCodeArray['full'];
+						$postCodeOuter = $postCodeArray['outer'];
+					}
+				} else { // Otherwise a string
+					// Last in (inverted array) is a non-postcode, non-city second address line
+					if ($townFound) {
+						$address2 = trim($addressLines[$index]);
+					}
+			
+					// County?
+					if (!$countyFound) {
+						if ($postCodeUtility->isCounty($addressLines[$index])) {
+							$countyFound = true;
+							$county = trim($addressLines[$index]);
+						}
+					}
+			
+					// Town?
+					if (!$townFound) {
+						if ($postCodeUtility->isTown($addressLines[$index])) {
+							$townFound = true;
+							$town = trim($addressLines[$index]);
+						}
+					}
+				}
+			}
+			
+			// If no town or county found, get them from postcode data if available, otherwise fall back to best guess
+			if ($postCodeFound) {
+				if (!$countyFound) $county = $postCodeUtility->countyForOuterPostCode($postCodeOuter);
+				if (!$townFound) $town = $postCodeUtility->townForOuterPostCode($postCodeOuter);
+			} else {
+				// Number of additional address lines
+				$extraLines = count($addressLines) - 1;
+				if ($extraLines > 1) {
+					$county = trim($addressLines[0]);
+					$town = trim($addressLines[1]);
+				} elseif ($extraLines > 0) {
+					$town = trim($addressLines[0]);
+				}
+			}
+			
+			// Dedupe
+			if (isset($county) && isset($town) && $town == $county) {
+				$county = '';
+			}
+		} else {
+			// We've got a non UK address, so we'll just try to store things whereever they fit
+			if(trim($address_line['POSTCODE'])) {
+				$postcode = array_shift($addressLines);
+			} else {
+				$postcode = '';
+			}
+			if(count($addressLines)) {
+				$address2 = array_pop($addressLines);
+			}
+			if(count($addressLines)) {
+				$town = array_pop($addressLines);
+			}
+			if(count($addressLines)) {
+				$county = implode(', ', $addressLines);
 			}
 		}
-
-		// Dedupe
-		if (isset($county) && isset($town) && $town == $county) {
-			$county = '';
-		}
+		
 
 		// Store data
 		$address->address1 = $this->fixCase($address1);
 		$address->address2 = $this->fixCase($address2);
 		$address->city = $this->fixCase($town);
 		$address->county = $this->fixCase($county);
-		$unitedKingdom = Country::model()->findByAttributes(array('name' => 'United Kingdom'));
-		$address->country_id = $unitedKingdom->id;
+		$address->country_id = $country->id;
 		$address->postcode = strtoupper($postcode);
 		$address->type = $data->ADDR_TYPE;
 		$address->date_start = $data->DATE_START;
