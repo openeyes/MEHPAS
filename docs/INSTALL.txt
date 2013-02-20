@@ -1,6 +1,6 @@
 - Install into /protected/modules/mehpas
 - Ensure code migration is up to date
-- Add docs/common.php and docs/console.php to corresponding files in /protected/config/local/
+- Add details from docs/common.php to /protected/config/local/common.php
 - Do migrations:
 	./yiic migrate --migrationPath=application.modules.mehpas.migrations
 - Map existing Patients and GPs:
