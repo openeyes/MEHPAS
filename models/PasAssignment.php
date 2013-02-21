@@ -222,7 +222,7 @@ class PasAssignment extends BaseActiveRecord {
 		if(!$allow_overriding || strtotime($this->last_modified_date <= time())) {
 			Yii::log("Removing assignment datelock: id: {$this->id}, internal_type, {$this->internal_type}", 'trace');
 		}
-		parent::save($runValidation, $attributes, $allow_overriding);
+		return parent::save($runValidation, $attributes, $allow_overriding);
 	}
 
 }

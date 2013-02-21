@@ -122,20 +122,28 @@ class PasService {
 					}
 	
 					// Save
-					$gp->save();
+					if(!$gp->save()) {
+						throw new CException('Cannot save gp: '.print_r($gp->getErrors(),true));
+					}
 	
 					$contact->parent_id = $gp->id;
-					$contact->save();
+					if(!$contact->save()) {
+						throw new CException('Cannot save gp contact: '.print_r($contact->getErrors(),true));
+					}
 	
 					if($address) {
 						$address->parent_id = $contact->id;
-						$address->save();
+						if(!$address->save()) {
+							throw new CException('Cannot save gp contact address: '.print_r($address->getErrors(),true));
+						}
 					} else {
 						Yii::log("GP has no address|id: {$gp->id}, obj_prof: {$gp->obj_prof}", 'warning', 'application.action');
 					}
 	
 					$assignment->internal_id = $gp->id;
-					$assignment->save();
+					if(!$assignment->save()) {
+						throw new CException('Cannot save gp assignment: '.print_r($assignment->getErrors(),true));
+					}
 	
 				} else {
 					
@@ -151,7 +159,9 @@ class PasService {
 						$patients_updated = 0;
 						foreach($patients as $patient) {
 							$patient->gp_id = null;
-							$patient->save();
+							if(!$patient->save()) {
+								throw new CException('Cannot save patient: '.print_r($patient->getErrors(),true));
+							}
 							$patients_updated++;
 						}
 						Yii::log("Updated $patients_updated patients", 'trace');
@@ -220,17 +230,23 @@ class PasService {
 					}
 	
 					// Save
-					$practice->save();
+					if(!$practice->save()) {
+						throw new CException('Cannot save practice: '.print_r($practice->getErrors(),true));
+					}
 	
 					if($address) {
 						$address->parent_id = $practice->id;
-						$address->save();
+						if(!$address->save()) {
+							throw new CException('Cannot save practice address: '.print_r($address->getErrors(),true));
+						}
 					} else {
 						Yii::log("Practice has no address|id: {$practice->id}, code: {$practice->code}", 'warning', 'application.action');
 					}
 	
 					$assignment->internal_id = $practice->id;
-					$assignment->save();
+					if(!$assignment->save()) {
+						throw new CException('Cannot save practice assignment: '.print_r($assignment->getErrors(),true));
+					}
 	
 				} else {
 					// Practice not in PAS (or at least no active records), so we should remove it and it's assignment from OpenEyes
@@ -245,7 +261,9 @@ class PasService {
 						$patients_updated = 0;
 						foreach($patients as $patient) {
 							$patient->practice_id = null;
-							$patient->save();
+							if(!$patient->save()) {
+								throw new CException('Cannot save patient: '.print_r($patient->getErrors(),true));
+							}
 							$patients_updated++;
 						}
 						Yii::log("Updated $patients_updated patients", 'trace');
@@ -403,7 +421,9 @@ class PasService {
 				}
 
 				// Save
-				$patient->save();
+				if(!$patient->save()) {
+					throw new CException('Cannot save patient: '.print_r($patient->getErrors(),true));
+				}
 
 				$contact->parent_id = $patient->id;
 				$contact->title = $this->fixCase($pas_patient->name->TITLE);
@@ -413,10 +433,14 @@ class PasService {
 					// Get primary phone from patient's main address
 					$contact->primary_phone = $pas_patient->address->TEL_NO;
 				}
-				$contact->save();
+				if(!$contact->save()) {
+					throw new CException('Cannot save patient contact: '.print_r($contact->getErrors(),true));
+				}
 
 				$assignment->internal_id = $patient->id;
-				$assignment->save();
+				if(!$assignment->save()) {
+					throw new CException('Cannot save patient assignment: '.print_r($assignment->getErrors(),true));
+				}
 
 				// Addresses
 				if($pas_patient->addresses) {
@@ -443,7 +467,9 @@ class PasService {
 						}
 
 						$this->updateAddress($address, $pas_address);
-						$address->save();
+	 					if(!$address->save()) {
+							throw new CException('Cannot save patient address: '.print_r($address->getErrors(),true));
+						}
 						$matched_address_ids[] = $address->id;
 					}
 
@@ -753,10 +779,10 @@ class PasService {
 		} 
 
 		// See if we can find a country
-		$country = '';
+		$country = null;
 		$index = 0;
 		while(!$country && $index < count($addressLines)) {
-			$country = Country::model()->findByAttributes(array('name' => $addressLines[$index]));
+			$country = Country::model()->find('LOWER(name) = :name', array(':name' => strtolower($addressLines[$index])));
 			$index++;
 		}
 		if($country) {
@@ -767,6 +793,10 @@ class PasService {
 			$country = Country::model()->findByAttributes(array('name' => 'United Kingdom'));
 		}
 		
+		$address2 = '';
+		$town = '';
+		$county = '';
+		$postcode = '';
 		if($country->name == 'United Kingdom') {
 			// We've got a UK address, so we'll see if we can parse the remaining tokens,
 
@@ -778,10 +808,6 @@ class PasService {
 			$postCodeOuter = '';
 			$townFound = false;
 			$countyFound = false;
-			$address2 = '';
-			$town = '';
-			$county = '';
-			$postcode = '';
 			
 			// Go through array looking for likely candidates for postcode, town/city and county
 			for ($index = 0; $index < count($addressLines); $index++) {
@@ -837,7 +863,7 @@ class PasService {
 			}
 		} else {
 			// We've got a non UK address, so we'll just try to store things whereever they fit
-			if(trim($address_line['POSTCODE'])) {
+			if(trim($data->POSTCODE)) {
 				$postcode = array_shift($addressLines);
 			} else {
 				$postcode = '';
