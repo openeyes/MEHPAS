@@ -760,7 +760,7 @@ class PasService {
 			$index++;
 		}
 		if($country) {
-			// Found non UK country, so we will remove the line from the address
+			// Found a country, so we will remove the line from the address
 			unset($addressLines[$index-1]);
 		} else {
 			// Cannot find country, so we assume it is UK
