@@ -319,8 +319,12 @@ class PasService {
 						'gender' => $pas_patient->SEX,
 						'dob' => $pas_patient->DATE_OF_BIRTH,
 						'date_of_death' => $pas_patient->DATE_OF_DEATH,
-						'ethnic_group' => $pas_patient->ETHNIC_GRP
 				);
+				if($ethnic_group = EthnicGroup::model()->findByAttributes(array('code' => $pas_patient->ETHNIC_GRP))) {
+					$patient_attrs['ethnic_group_id'] = $ethnic_group->id;
+				} else {
+					$patient_attrs['ethnic_group_id'] = null;
+				}
 				if($hos_num = $pas_patient->hos_number) {
 					$hos_num = $hos_num->NUM_ID_TYPE . $hos_num->NUMBER_ID;
 					$patient_attrs['pas_key'] = $hos_num;
