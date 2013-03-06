@@ -316,9 +316,10 @@ class PasService {
 			if($pas_patient = $assignment->external) {
 				Yii::log("Found patient in PAS", 'trace');
 				$patient_attrs = array(
-						'gender' =>$pas_patient->SEX,
+						'gender' => $pas_patient->SEX,
 						'dob' => $pas_patient->DATE_OF_BIRTH,
 						'date_of_death' => $pas_patient->DATE_OF_DEATH,
+						'ethnic_group' => $pas_patient->ETHNIC_GRP
 				);
 				if($hos_num = $pas_patient->hos_number) {
 					$hos_num = $hos_num->NUM_ID_TYPE . $hos_num->NUMBER_ID;
