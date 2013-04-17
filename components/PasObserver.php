@@ -24,7 +24,6 @@ class PasObserver {
 	 * @param array $params
 	 */
 	public function updatePatientFromPas($params) {
-
 		// Check to see if patient is in "offline" mode
 		$patient = $params['patient'];
 		if(!$patient->use_pas){

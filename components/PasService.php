@@ -200,6 +200,18 @@ class PasService {
 						$practice->phone = 'Unknown';
 					}
 	
+					// Contact
+					if (!$contact = $practice->contact) {
+						$contact = new Contact;
+						$contact->parent_class = 'Practice';
+						$contact->parent_id = $practice->id;
+					}
+					$contact->primary_phone = $practice->phone;
+
+					if (!$contact->save()) {
+						throw new Exception("Unable to save practice contact: ".print_r($contact->getErrors(),true));
+					}
+
 					// Address
 					$address1 = array();
 					if($pas_practice->ADD_NAM) {
@@ -211,9 +223,10 @@ class PasService {
 					$city = $this->fixCase($pas_practice->ADD_TWN);
 					$postcode = strtoupper($pas_practice->PC);
 					if(trim(implode('',array($address1, $address2, $city, $postcode)))) {
-						if(!$address = $practice->address) {
+						if(!$address = $practice->contact->address) {
 							$address = new Address();
-							$address->parent_class = 'Practice';
+							$address->parent_class = 'Contact';
+							$address->parent_id = $contact->id;
 						}
 						$address->address1 = $address1;
 						$address->address2 = $address2;
@@ -223,7 +236,7 @@ class PasService {
 						$address->country_id = 1;
 					} else {
 						// Address doesn't look useful, so we'll delete it
-						if($address = $practice->address) {
+						if($address = $practice->contact->address) {
 							$address->delete();
 							$address = null;
 						}
@@ -623,7 +636,7 @@ class PasService {
 					$patient = $patient_assignment->internal;
 
 					// Check that patient has an address
-					if($patient->address) {
+					if($patient->contact->address) {
 						$ids[] = $patient->id;
 					} else {
 						$patients_with_no_address++;
