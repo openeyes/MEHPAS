@@ -170,13 +170,16 @@ class PasObserver {
 	}
 	
 	public function bufferUpdates() {
-		Yii::log('Starting buffer','trace');
+		Yii::log('Starting PAS buffer','trace');
 		Yii::app()->mehpas_buffer->setBuffering(true);
 	}
 
 	public function processBuffer() {
-		Yii::log('Processing buffer','trace');
-		Yii::app()->mehpas_buffer->setBuffering(true);
+		Yii::log('Processing PAS buffer','trace');
+		Yii::app()->mehpas_buffer->setBuffering(false);
+		foreach(Yii::app()->mehpas_buffer->getPatients() as $patient) {
+			$this->updatePatientFromPas(array('patient' => $patient));
+		}
 	}
 
 }
