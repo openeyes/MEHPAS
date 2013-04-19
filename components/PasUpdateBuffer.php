@@ -4,7 +4,7 @@ class PasUpdateBuffer extends CApplicationComponent {
 	
 	protected $_patients;
 	protected $_gps;
-	protected $practices;
+	protected $_practices;
 	
 	protected $_buffer = false;
 	
@@ -25,7 +25,7 @@ class PasUpdateBuffer extends CApplicationComponent {
 	}
 	
 	public function addPractice($practice) {
-		$this->_practices[] = $$practice;
+		$this->_practices[] = $practice;
 	}
 	
 	public function getPractices() {
