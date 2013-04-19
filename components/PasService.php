@@ -315,9 +315,7 @@ class PasService {
 		$criteria = new CDbCriteria();
 		$criteria->addInCondition('RM_PATIENT_NO', $rm_patient_numbers);
 		$pas_patients = PAS_Patient::model()->findAll($criteria);
-		foreach($pas_patients as $pas_patient) {
-			Yii::log('PAS patient: '.$pas_patient->RM_PATIENT_NO, 'trace');
-		}
+		// TODO: Finish!
 	}
 	
 	/**

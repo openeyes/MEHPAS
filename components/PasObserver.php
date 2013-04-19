@@ -31,9 +31,9 @@ class PasObserver {
 			return;
 		}
 
+		// Check to see if we are buffering updates
 		if(Yii::app()->mehpas_buffer->getBuffering()) {
 			Yii::app()->mehpas_buffer->addPatient($patient);
-			Yii::log('Buffering patient', 'trace');
 			return;
 		}
 		
@@ -73,6 +73,12 @@ class PasObserver {
 	public function updateGpFromPas($params) {
 		$gp = $params['gp'];
 
+		// Check to see if we are buffering updates
+		if(Yii::app()->mehpas_buffer->getBuffering()) {
+			Yii::app()->mehpas_buffer->addGp($gp);
+			return;
+		}
+		
 		// Check if stale
 		$assignment = PasAssignment::model()->findByInternal('Gp', $gp->id);
 		if($assignment && $assignment->isStale()) {
@@ -109,6 +115,12 @@ class PasObserver {
 	public function updatePracticeFromPas($params) {
 		$practice = $params['practice'];
 
+		// Check to see if we are buffering updates
+		if(Yii::app()->mehpas_buffer->getBuffering()) {
+			Yii::app()->mehpas_buffer->addPractice($practice);
+			return;
+		}
+		
 		// Check if stale
 		$assignment = PasAssignment::model()->findByInternal('Practice', $practice->id);
 		if($assignment && $assignment->isStale()) {
@@ -180,13 +192,16 @@ class PasObserver {
 
 	/**
 	 * Process buffered PAS events
+	 * FIXME: Currently this does nothing, emulating previous "no_pas" mode
 	 */
 	public function processBuffer() {
 		Yii::log('Processing PAS buffer','trace');
 		Yii::app()->mehpas_buffer->setBuffering(false);
 		$pas_service = new PasService();
 		if ($pas_service->isAvailable()) {
-			$pas_service->updatePatientsFromPas(Yii::app()->mehpas_buffer->getPatients());
+			//$pas_service->updatePatientsFromPas(Yii::app()->mehpas_buffer->getPatients());
+			//$pas_service->updatePatientsFromPas(Yii::app()->mehpas_buffer->getPractices());
+			//$pas_service->updatePatientsFromPas(Yii::app()->mehpas_buffer->getGps());
 		} else {
 			$pas_service->flashPasDown();
 		}
