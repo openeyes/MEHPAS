@@ -299,6 +299,28 @@ class PasService {
 		$this->flashPasDown();
 	}
 
+	public function updatePatientsFromPas($patients) {
+		$patient_ids = array();
+		foreach($patients as $patient) {
+			$patient_ids[$patient->id] = $patient->id;
+		}
+		$criteria = new CDbCriteria();
+		$criteria->addInCondition('internal_id', $patient_ids);
+		$criteria->addCondition('internal_type = :internal_type');
+		$criteria->params = array(':internal_type' => 'Patient');
+		$assignments = PasAssignment::model()->findAll($criteria);
+		$rm_patient_numbers = array();
+		foreach($assignments as $assignment) {
+			$rm_patient_numbers[] = $assignment->external_id;
+		}
+		$criteria = new CDbCriteria();
+		$criteria->addInCondition('RM_PATIENT_NO', $rm_patient_numbers);
+		$pas_patients = PAS_Patient::model()->findAll($criteria);
+		foreach($pas_patients as $pas_patient) {
+			Yii::log('PAS patient: '.$pas_patient->RM_PATIENT_NO, 'trace');
+		}
+	}
+	
 	/**
 	 * Update patient from PAS
 	 * @param Patient $patient

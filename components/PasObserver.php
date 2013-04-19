@@ -169,16 +169,26 @@ class PasObserver {
 		}
 	}
 	
+	/**
+	 * Start buffering PAS events so they can be processed as a batch job
+	 * which should hopefully be more efficient
+	 */
 	public function bufferUpdates() {
 		Yii::log('Starting PAS buffer','trace');
 		Yii::app()->mehpas_buffer->setBuffering(true);
 	}
 
+	/**
+	 * Process buffered PAS events
+	 */
 	public function processBuffer() {
 		Yii::log('Processing PAS buffer','trace');
 		Yii::app()->mehpas_buffer->setBuffering(false);
-		foreach(Yii::app()->mehpas_buffer->getPatients() as $patient) {
-			$this->updatePatientFromPas(array('patient' => $patient));
+		$pas_service = new PasService();
+		if ($pas_service->isAvailable()) {
+			$pas_service->updatePatientsFromPas(Yii::app()->mehpas_buffer->getPatients());
+		} else {
+			$pas_service->flashPasDown();
 		}
 	}
 
