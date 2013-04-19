@@ -170,10 +170,12 @@ class PasObserver {
 	}
 	
 	public function bufferUpdates() {
+		Yii::log('Starting buffer','trace');
 		Yii::app()->mehpas_buffer->setBuffering(true);
 	}
 
 	public function processBuffer() {
+		Yii::log('Processing buffer','trace');
 		Yii::app()->mehpas_buffer->setBuffering(true);
 	}
 
