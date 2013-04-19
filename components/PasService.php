@@ -306,8 +306,7 @@ class PasService {
 		}
 		$criteria = new CDbCriteria();
 		$criteria->addInCondition('internal_id', $patient_ids);
-		$criteria->addCondition('internal_type = :internal_type');
-		$criteria->params = array(':internal_type' => 'Patient');
+		$criteria->compare('internal_type', 'Patient');
 		$assignments = PasAssignment::model()->findAll($criteria);
 		$rm_patient_numbers = array();
 		foreach($assignments as $assignment) {
