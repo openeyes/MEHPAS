@@ -32,7 +32,8 @@ class PasObserver {
 		}
 
 		if(Yii::app()->mehpas_buffer->getBuffering()) {
-			Yii::log('Buffering', 'trace');
+			Yii::app()->mehpas_buffer->addPatient($patient);
+			Yii::log('Buffering patient', 'trace');
 			return;
 		}
 		
