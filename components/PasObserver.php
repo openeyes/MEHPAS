@@ -31,6 +31,11 @@ class PasObserver {
 			return;
 		}
 
+		if(Yii::app()->mehpas_buffer->getBuffering()) {
+			Yii::log('Buffering', 'trace');
+			return;
+		}
+		
 		// Check if stale
 		$assignment = PasAssignment::model()->findByInternal('Patient', $patient->id);
 		if($assignment && $assignment->isStale()) {
@@ -161,6 +166,14 @@ class PasObserver {
 		} else {
 			$pas_service->flashPasDown();
 		}
+	}
+	
+	public function bufferUpdates() {
+		Yii::app()->mehpas_buffer->setBuffering(true);
+	}
+
+	public function processBuffer() {
+		Yii::app()->mehpas_buffer->setBuffering(true);
 	}
 
 }

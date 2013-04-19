@@ -24,6 +24,9 @@ return array(
 				'application.modules.mehpas.models.*',
 		),
 		'components' => array(
+				'mehpas_buffer' => array(
+						'class' => 'PasUpdateBuffer',
+				),
 				'event' => array(
 						'observers' => array(
 								'patient_search_criteria' => array(
@@ -48,6 +51,18 @@ return array(
 										'update_from_pas' => array(
 												'class' => 'PasObserver',
 												'method' => 'updatePracticeFromPas',
+										),
+								),
+								'start_batch_mode' => array(
+										'mehpas_buffer_updates' => array(
+												'class' => 'PasObserver',
+												'method' => 'bufferUpdates',
+										),
+								),
+								'end_batch_mode' => array(
+										'mehpas_process_buffer' => array(
+												'class' => 'PasObserver',
+												'method' => 'processBuffer',
 										),
 								),
 								/* Referral code is currently broken
