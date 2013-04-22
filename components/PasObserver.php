@@ -192,19 +192,21 @@ class PasObserver {
 
 	/**
 	 * Process buffered PAS events
-	 * FIXME: Currently this does nothing, emulating previous "no_pas" mode
+	 * @todo Currently this does nothing, emulating previous "no_pas" mode. We may want to improve on this in the future.
 	 */
 	public function processBuffer() {
 		Yii::log('Processing PAS buffer','trace');
 		Yii::app()->mehpas_buffer->setBuffering(false);
+		/*
 		$pas_service = new PasService();
 		if ($pas_service->isAvailable()) {
-			//$pas_service->updatePatientsFromPas(Yii::app()->mehpas_buffer->getPatients());
-			//$pas_service->updatePatientsFromPas(Yii::app()->mehpas_buffer->getPractices());
-			//$pas_service->updatePatientsFromPas(Yii::app()->mehpas_buffer->getGps());
+			$pas_service->updatePatientsFromPas(Yii::app()->mehpas_buffer->getPatients());
+			$pas_service->updatePatientsFromPas(Yii::app()->mehpas_buffer->getPractices());
+			$pas_service->updatePatientsFromPas(Yii::app()->mehpas_buffer->getGps());
 		} else {
 			$pas_service->flashPasDown();
 		}
+		*/
 	}
 
 }
