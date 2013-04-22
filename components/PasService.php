@@ -81,7 +81,6 @@ class PasService {
 					// Contact
 					if(!$contact = $gp->contact) {
 						$contact = new Contact();
-						$contact->parent_class = 'Gp';
 					}
 					$contact->first_name = $this->fixCase(trim($pas_gp->FN1 . ' ' . $pas_gp->FN2));
 					$contact->last_name = $this->fixCase($pas_gp->SN);
@@ -126,11 +125,15 @@ class PasService {
 						throw new CException('Cannot save gp: '.print_r($gp->getErrors(),true));
 					}
 	
-					$contact->parent_id = $gp->id;
 					if(!$contact->save()) {
 						throw new CException('Cannot save gp contact: '.print_r($contact->getErrors(),true));
 					}
 	
+					$gp->contact_id = $contact->id;
+					if (!$gp->save()) {
+						throw new Exception("Unable to save gp: ".print_r($gp->getErrors(),true));
+					}
+
 					if($address) {
 						$address->parent_id = $contact->id;
 						if(!$address->save()) {
@@ -435,7 +438,10 @@ class PasService {
 
 				if (!$contact = $patient->contact) {
 					$contact = new Contact;
-					$contact->parent_class = 'Patient';
+					if (!$contact->save()) {
+						throw new Exception("Unable to save patient contact: ".print_r($contact->getErrors(),true));
+					}
+					$patient->contact_id = $contact->id;
 				}
 
 				// Save
@@ -443,7 +449,6 @@ class PasService {
 					throw new CException('Cannot save patient: '.print_r($patient->getErrors(),true));
 				}
 
-				$contact->parent_id = $patient->id;
 				$contact->title = $this->fixCase($pas_patient->name->TITLE);
 				$contact->first_name = ($pas_patient->name->NAME1) ? $this->fixCase($pas_patient->name->NAME1) : '(UNKNOWN)';
 				$contact->last_name = $this->fixCase($pas_patient->name->SURNAME_ID);
@@ -472,16 +477,16 @@ class PasService {
 						Yii::log("Looking for patient address: PAS_PatientAddress->POSTCODE: ".$pas_address->POSTCODE, 'trace');
 						$matched_clause = ($matched_address_ids) ? ' AND id NOT IN ('.implode(',',$matched_address_ids).')' : '';
 						$address = Address::model()->find(array(
-								'condition' => "parent_id = :patient_id AND parent_class = 'Patient' AND REPLACE(postcode,' ','') = :postcode" . $matched_clause,
-								'params' => array(':patient_id' => $patient->id, ':postcode' => str_replace(' ','',$pas_address->POSTCODE)),
+								'condition' => "parent_id = :contact_id AND parent_class = 'Contact' AND REPLACE(postcode,' ','') = :postcode" . $matched_clause,
+								'params' => array(':contact_id' => $contact->id, ':postcode' => str_replace(' ','',$pas_address->POSTCODE)),
 						));
 
 						// Check if we have an address (that we haven't already matched)
 						if(!$address) {
 							Yii::log("Patient address not found, creating", 'trace');
 							$address = new Address;
-							$address->parent_id = $patient->id;
-							$address->parent_class = 'Patient';
+							$address->parent_id = $contact->id;
+							$address->parent_class = 'Contact';
 						}
 
 						$this->updateAddress($address, $pas_address);
@@ -494,8 +499,8 @@ class PasService {
 					// Remove any orphaned addresses (expired?)
 					$matched_string = implode(',',$matched_address_ids);
 					$orphaned_addresses = Address::model()->deleteAll(array(
-							'condition' => "parent_id = :patient_id AND parent_class = 'Patient' AND id NOT IN($matched_string)",
-							'params' => array(':patient_id' => $patient->id),
+							'condition' => "parent_id = :contact_id AND parent_class = 'Contact' AND id NOT IN($matched_string)",
+							'params' => array(':contact_id' => $contact->id),
 					));
 					$matched_addresses = count($matched_address_ids);
 					if($orphaned_addresses) {
@@ -905,10 +910,19 @@ class PasService {
 		$address->county = $this->fixCase($county);
 		$address->country_id = $country->id;
 		$address->postcode = strtoupper($postcode);
-		$address->type = $data->ADDR_TYPE;
+		$address->address_type_id = $this->getAddressType($data->ADDR_TYPE);
 		$address->date_start = $data->DATE_START;
 		$address->date_end = $data->DATE_END;
+	}
 
+	public function getAddressType($addr_type) {
+		switch ($addr_type) {
+			case 'H': return AddressType::model()->find('name=?',array('Home'))->id;
+			case 'C': return AddressType::model()->find('name=?',array('Correspondence'))->id;
+			case 'T': return AddressType::model()->find('name=?',array('Transport'))->id;
+		}
+
+		return null;
 	}
 
 	public function associateLegacyEvents($patient) {
