@@ -226,7 +226,7 @@ class PasService {
 					$city = $this->fixCase($pas_practice->ADD_TWN);
 					$postcode = strtoupper($pas_practice->PC);
 					if(trim(implode('',array($address1, $address2, $city, $postcode)))) {
-						if(!$address = $practice->contact->address) {
+						if(!$address = $contact->address) {
 							$address = new Address();
 							$address->parent_class = 'Contact';
 							$address->parent_id = $contact->id;
@@ -250,8 +250,7 @@ class PasService {
 						throw new CException('Cannot save practice: '.print_r($practice->getErrors(),true));
 					}
 	
-					if($address) {
-						$address->parent_id = $practice->id;
+					if ($address) {
 						if(!$address->save()) {
 							throw new CException('Cannot save practice address: '.print_r($address->getErrors(),true));
 						}
