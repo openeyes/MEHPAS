@@ -43,6 +43,12 @@ class PasAssignment extends BaseActiveRecord {
 	const PAS_CACHE_TIME = 300;
 
 	/**
+	 * Stores last_modified timestamp during assignment lock
+	 * @var string
+	 */
+	protected $real_last_modified;
+
+	/**
 	 * Returns the static model of the specified AR class.
 	 * @return Phrase the static model class
 	 */
@@ -118,7 +124,8 @@ class PasAssignment extends BaseActiveRecord {
 	 * @param integer $internal_id
 	 */
 	public function findByInternal($internal_type, $internal_id) {
-		return $this->find('internal_id = :internal_id AND internal_type = :internal_type', array(':internal_id' => (int) $internal_id, ':internal_type' => $internal_type));
+		//Yii::log("findByInternal: internal_id: $internal_id, internal_type: $internal_type", 'trace');
+		return $this->findAndLockIfStale('internal_id = :internal_id AND internal_type = :internal_type', array(':internal_id' => (int) $internal_id, ':internal_type' => $internal_type));
 	}
 
 	/**
@@ -127,7 +134,8 @@ class PasAssignment extends BaseActiveRecord {
 	 * @param string $external_id
 	 */
 	public function findByExternal($external_type, $external_id) {
-		return $this->find('external_id = :external_id AND external_type = :external_type', array(':external_id' => (int) $external_id, ':external_type' => $external_type));
+		//Yii::log("findByExternal: external_id: $external_id, external_type: $external_type", 'trace');
+		return $this->findAndLockIfStale('external_id = :external_id AND external_type = :external_type', array(':external_id' => (int) $external_id, ':external_type' => $external_type));
 	}
 
 	/**
@@ -135,18 +143,86 @@ class PasAssignment extends BaseActiveRecord {
 	 * @return boolean
 	 */
 	public function isStale() {
-		$cache_time = (isset(Yii::app()->params['mehpas_cache_time'])) ? Yii::app()->params['mehpas_cache_time'] : self::PAS_CACHE_TIME;
-		return strtotime($this->last_modified_date) < (time() - $cache_time);
+		return isset($this->real_last_modified);
 	}
 
-	/**
-	 * Check if record needs refreshing from PAS
-	 * @param string $internal_type
-	 * @param integer $internal_id
-	 */
-	public static function is_stale($internal_type, $internal_id) {
-		$record = self::model()->findByInternal($internal_type, $internal_id);
-		return $record && $record->isStale();
+	public function unlock() {
+		if(!$this->real_last_modified) {
+			throw new Exception('original last modified timestamp not stored, so assignment can\'t be unlocked');
+		}
+		$this->last_modified_date = $this->real_last_modified;
+		$this->save(true, null, true);
+	}
+
+	protected function findAndLockIfStale($condition, $params) {
+		//Yii::log("PasAssignment::findAndLockIfStale()", 'trace');
+		$connection = $this->getDbConnection();
+
+		// Find transaction and get a lock on it
+		$transaction = $connection->beginTransaction();
+		$command = $connection->createCommand()
+		->select('id,internal_type,last_modified_date')
+		->from($this->tableName())
+		->where($condition, $params);
+		$command->setText($command->getText() . ' FOR UPDATE');
+		//Yii::log("Trying to obtain row lock", 'trace');
+		$record = $command->queryRow();
+		$id = $record['id'];
+		$modified = $record['last_modified_date'];
+		$internal_type = $record['internal_type'];
+		//Yii::log("Got row lock: id: $id, modified: $modified", 'trace');
+
+		// Check to see if modified date is in the future
+		//Yii::log("Checking to see if row is datelocked", 'trace');
+		while(strtotime($modified) > time()) {
+			// It is, which indicates that the assignment is locked, keep checking until we can get an exclusive lock
+			Yii::log("Assignment is datelocked, try again in 1 second...: id: $id, modified: $modified, internal_type: $internal_type", "trace");
+			//Yii::log("Releasing row lock", 'trace');
+			$transaction->commit();
+			sleep(1);
+			//Yii::log("Reobtaining row lock", 'trace');
+			$transaction = $connection->beginTransaction();
+			$record = $command->queryRow();
+			//Yii::log("Got row lock", 'trace');
+			$id = $record['id'];
+			$modified = $record['last_modified_date'];
+		}
+		//Yii::log("Row not datelocked", 'trace');
+			
+		if($modified) {
+			// Found assignment
+			$cache_time = (isset(Yii::app()->params['mehpas_cache_time'])) ? Yii::app()->params['mehpas_cache_time'] : self::PAS_CACHE_TIME;
+			$stale = false;
+
+			// Check to see if assignment is stale
+			if(strtotime($modified) < (time() - $cache_time)) {
+				// It is, so update timestamp to 30 seconds in future to signal to other processes that record is locked
+				Yii::log("Datelocking assignment: id: $id, internal_type: $internal_type", 'trace');
+				$connection->createCommand()->update($this->tableName(), array('last_modified_date' => date("Y-m-d H:i:s", time() + 30)), $condition, $params);
+				$stale = true;
+			}
+
+			$assignment = $this->find($condition,$params);
+			if($stale) {
+				$assignment->real_last_modified = $modified;
+			}
+		} else {
+			// No assignment
+			$assignment = null;
+		}
+
+		// Release lock
+		//Yii::log("Releasing row lock", 'trace');
+		$transaction->commit();
+
+		return $assignment;
+	}
+
+	public function save($runValidation = true, $attributes = null, $allow_overriding = false) {
+		if(!$allow_overriding || strtotime($this->last_modified_date <= time())) {
+			Yii::log("Removing assignment datelock: id: {$this->id}, internal_type, {$this->internal_type}", 'trace');
+		}
+		parent::save($runValidation, $attributes, $allow_overriding);
 	}
 
 }

@@ -7,5 +7,8 @@ return array(
 				'verifypasassignment' => array(
 						'class' => 'application.modules.mehpas.components.VerifyPasAssignmentCommand',
 				),
+				'populatepractices' => array(
+						'class' => 'application.modules.mehpas.components.PopulatePracticesCommand',
+				),
 		),
 );

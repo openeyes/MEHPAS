@@ -30,9 +30,10 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 
 	public function run($args) {
 		$pas_service = new PasService();
-		if ($pas_service->available) {
+		if ($pas_service->isAvailable()) {
 			$this->populatePatientPasAssignment();
 			$this->populateGpPasAssignment();
+			$this->populatePracticePasAssignment();
 		} else {
 			echo "PAS is unavailable or module is disabled";
 			return false;
@@ -139,22 +140,20 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 					$results['updated']++;
 				}
 			} else {
-				// No match, let's check to see if patients using this gp are stale
-				$stale_patients = Patient::model()->findAllByAttributes(array('gp_id' => $gp_id));
-				$still_used = false;
-				foreach($stale_patients as $patient) {
+				// GP is not in PAS, let's remove GP and update associated patients
+				$gp_patients = Patient::model()->findAllByAttributes(array('gp_id' => $gp_id));
+				foreach($gp_patients as $patient) {
 					if($patient->gp_id == $gp_id) {
-						$still_used = true;
+						$patient->gp_id = null;
+						$patient->save();
 					}
 				}
-				if($still_used) {
-					$results['skipped']++;
-					echo "Cannot find match in PAS for obj_prof $obj_prof, cannot create assignment\n";
-				} else {
-					echo "Deleting unused GP\n";
-					$results['removed']++;
-					Gp::model()->deleteByPk($gp_id);
+				echo "Deleting invalid GP\n";
+				if($assignment = PasAssignment::model()->find('internal_id=? and internal_type=?',array($gp_id,'Gp'))) {
+					$assignment->delete();
 				}
+				Gp::model()->deleteByPk($gp_id);
+				$results['removed']++;
 			}
 
 		}
@@ -235,4 +234,131 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 		echo "Done.\n";
 	}
 
+	protected function populatePracticePasAssignment() {
+
+		// Find all practices that don't have an assignment
+		$practices = Yii::app()->db->createCommand()
+		->select('practice.id, practice.code')
+		->from('practice')
+		->leftJoin('pas_assignment', "pas_assignment.internal_id = practice.id AND pas_assignment.internal_type = 'Practice'")
+		->where('pas_assignment.id IS NULL')
+		->order('practice.last_modified_date DESC')
+		->queryAll();
+
+		echo "There are ".count($practices)." practices without an assignment, processing...\n";
+
+		$results = array(
+				'updated' => 0,
+				'removed' => 0,
+				'duplicates' => 0,
+				'skipped' => 0,
+				'conflicted' => 0,
+		);
+
+		foreach($practices as $practice) {
+
+			$code = $practice['code'];
+			$practice_id = $practice['id'];
+
+			// Check to see if practice is associated with a patient
+			$patient = Yii::app()->db->createCommand()
+			->select('count(id)')
+			->from('patient')
+			->where('practice_id = :practice_id', array(':practice_id' => $practice_id))
+			->queryScalar();
+			if(!$patient) {
+				// Practice is not being used, let's delete it!
+				echo "Deleting unused practice (code $code, id $practice_id)\n";
+				$results['removed']++;
+				Practice::model()->deleteByPk($practice_id);
+				continue;
+			}
+
+			// Check to see if there is more than one practice with the same code (duplicates)
+			$duplicate_practices = Yii::app()->db->createCommand()
+			->select('id')
+			->from('practice')
+			->where('code = :code AND id != :practice_id', array(':code' => $code, ':practice_id' => $practice_id))
+			->queryColumn();
+			if(count($duplicate_practices)) {
+				echo "There are one or more other practices with code $code, attempting to merge\n";
+				$merged = 0;
+				foreach($duplicate_practices as $duplicate_practice_id) {
+					$practice_patients = Yii::app()->db->createCommand()
+					->update('patient', array('practice_id' => $practice_id), 'practice_id = :duplicate_practice_id', array(':duplicate_practice_id' => $duplicate_practice_id));
+					$results['duplicates']++;
+					$results['removed']++;
+					Practice::model()->deleteByPk($duplicate_practice_id);
+				}
+				echo "Removed ".count($duplicate_practices)." duplicate practice(s) and merged their patients\n";
+			}
+				
+			// Find a matching practice
+			$pas_practices = PAS_Practice::model()->findAll(array(
+					'condition' => 'OBJ_LOC = :code AND (DATE_TO IS NULL OR DATE_TO >= SYSDATE) AND (DATE_FR IS NULL OR DATE_FR <= SYSDATE)',
+					'order' => 'DATE_FR DESC',
+					'params' => array(
+							':code' => $code,
+					),
+			));
+
+			if(count($pas_practices) > 0) {
+				// Found a match
+				Yii::log("Found match in PAS for code $code, creating assignment", 'trace');
+
+				if ($assignment = PasAssignment::model()->find('internal_id=? and internal_type=?',array($practice_id,'Practice'))) {
+					if ($assignment->external_id != $obj_prof || $assignment->external_type != 'PAS_Practice') {
+						echo "Conflict in pas_assignment:\n\n";
+						echo "Wanted to insert:\n\n";
+						echo "external_id : $code\n";
+						echo "external_type : PAS_Practice\n";
+						echo "internal_id : $practice_id\n";
+						echo "internal_type : Practice\n\n";
+						echo "But this already exists:\n\n";
+						echo "external_id : $assignment->external_id\n";
+						echo "external_type : $assignment->external_type\n";
+						echo "internal_id : $assignment->internal_id\n";
+						echo "internal_type : $assignment->internal_type\n\n";
+
+						$results['conflicted']++;
+					} else {
+						$results['skipped']++;
+					}
+				} else {
+					$assignment = new PasAssignment();
+					$assignment->external_id = $code;
+					$assignment->external_type = 'PAS_Practice';
+					$assignment->internal_id = $practice_id;
+					$assignment->internal_type = 'Practice';
+					$assignment->save();
+					$results['updated']++;
+				}
+			} else {
+                                // Practice is not in PAS, let's remove Practice and update associated patients
+                                $practice_patients = Patient::model()->findAllByAttributes(array('practice_id' => $practice_id));
+                                foreach($practice_patients as $patient) {
+                                        if($patient->practice_id == $practice_id) {
+                                                $patient->practice_id = null;
+                                                $patient->save();
+                                        }
+                                }
+                                echo "Deleting invalid Practice\n";
+                                if($assignment = PasAssignment::model()->find('internal_id=? and internal_type=?',array($practice_id,'Practice'))) {
+                                        $assignment->delete();
+                                }
+                                Practice::model()->deleteByPk($practice_id);
+                                $results['removed']++;
+			}
+
+		}
+
+		echo "Practice Results:\n";
+		echo " - Updated: ".$results['updated']."\n";
+		echo " - Removed: ".$results['removed']."\n";
+		echo " - Duplicates: ".$results['duplicates']."\n";
+		echo " - Conflicts: ".$results['conflicted']."\n";
+		echo " - Skipped: ".$results['skipped']."\n";
+		echo "Done.\n";
+	}
+	
 }

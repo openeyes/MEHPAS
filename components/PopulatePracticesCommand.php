@@ -18,26 +18,33 @@
  * @todo This command is currently disabled until the referral code is fixed
  */
 
-class FetchPASReferralsCommand extends CConsoleCommand {
+class PopulatePracticesCommand extends CConsoleCommand {
 
 	public function getName() {
-		return 'FetchPASReferrals';
+		return 'PopulatePractices';
 	}
 
 	public function getHelp() {
-		return "Fetches the latest referrals from PAS and puts them in the OpenEyes DB.\n";
+		return "Imports practice data for every patient currently in on the waiting list\n";
 	}
 
 	public function run($args) {
-		echo "Disabled until the referral code is fixed";
-		return false;
-		$pas_service = new PasService();
-		if ($pas_service->isAvailable()) {
-			$pas_service->fetchNewReferrals();
-		} else {
-			echo "PAS is unavailable or module is disabled";
-			return false;
+		$patient_ids = Yii::app()->db->createCommand()
+		->select('patient_id')
+		->from('element_operation')
+		->join('event', 'event.id = element_operation.event_id')
+		->join('episode', 'episode.id = event.episode_id')
+		->where('element_operation.status IN (0,2)')
+		->queryColumn();
+		foreach($patient_ids as $patient_id) {
+			$patient = Patient::model()->findByPk($patient_id);
+			if($patient) {
+				echo ".";
+			} else {
+				echo "!";
+			}
 		}
+		echo "done.\n";
 	}
 
 }
