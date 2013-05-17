@@ -30,50 +30,47 @@ class PasReferral {
 	 */
 	public function matchReferrals() {
 		// Find all the open episodes with no referral
-		$episodes = Yii::app()->db->createCommand()
-		->select('ep.id AS episode_id, ep.patient_id AS patient_id, rea.id AS rea_id, ssa.id AS ssa_id')
-		->from('episode ep')
-		->join('firm f', 'f.id = ep.firm_id')
-		->join('service_specialty_assignment ssa', 'ssa.id = f.service_specialty_assignment_id')
-		->leftJoin('referral_episode_assignment rea', 'rea.episode_id = ep.id')
-		->where('ep.end_date IS NULL AND rea_id IS NULL')
-		->queryAll();
 
-		foreach($episodes as $episode) {
-			if ($referral = $this->getReferral($episode['patient_id'], $episode['ssa_id'])) {
-				Yii::log("Found referral_id $referral->id for episode_id ".$episode['episode_id'].", creating assignment", 'trace');
+		$criteria = new CDbCriteria;
+		$criteria->addCondition('end_date is null and referralAssignment.id is null');
+
+		foreach (Episode::model()
+			->with(array(
+				'firm' => array(
+					'joinType' => 'JOIN',
+				),
+				'referralAssignment',
+			))
+			->findAll($criteria) {
+
+			if ($referral = $this->getReferral($episode->patient_id, $episode->firm->service_subspecialty_assignment_id)) {
+				Yii::log("Found referral_id $referral->id for episode_id ".$episode->id.", creating assignment", 'trace');
 				$rea = new ReferralEpisodeAssignment();
-				$rea->episode_id = $episode['episode_id'];
+				$rea->episode_id = $episode->id;
 				$rea->referral_id = $referral->id;
 				$rea->save();
 			} else {
-				Yii::log("Cannot find a referral for episode_id ".$episode['episode_id'], 'trace');
+				Yii::log("Cannot find a referral for episode_id ".$episode->id, 'trace');
 			}
 		}
 	}
 
 	protected function getReferral($patient_id, $ssa_id) {
-
 		// Look for open referrals of this service
-		$referral = Referral::model()->find(array(
+		if ($referral = Referral::model()->find(array(
 				'condition' => 'patient_id = :p AND service_specialty_assignment_id = :s AND closed = 0',
 				'order' => 'refno DESC',
 				'params' => array(':p' => $patientId, ':s' => $ssaId),
-		)
-		);
-		if ($referral) {
+			))) {
 			return $referral;
 		}
 
 		// There are no open referrals for this specialty, try and find open referrals for a different specialty
-		$referral = Referral::model()->find(array(
-				'order' => 'refno DESC',
-				'condition' => 'patient_id = :p AND closed = 0',
-				'params' => array(':p' => $patientId),
-		)
-		);
-
-		return $referral;
+		return Referral::model()->find(array(
+			'order' => 'refno DESC',
+			'condition' => 'patient_id = :p AND closed = 0',
+			'params' => array(':p' => $patientId),
+		));
 	}
 
 	/**
@@ -84,12 +81,16 @@ class PasReferral {
 
 		// Find the last referral that is not linked to an episode. This is required because referrals fetched
 		// on demand may otherwise leave holes (and these will always be linked to an episode).
-		$last_refno = Yii::app()->db->createCommand()
-		->select('MAX(refno) AS mrn')
-		->from('referral')
-		->leftJoin('referral_episode_assignment', 'referral_episode_assignment.referral_id = referral.id')
-		->where('episode_id IS NULL')
-		->queryScalar();
+		$criteria = new CDbCriteria;
+		$criteria->order = 'id asc';
+		$criteria->limit = 1;
+		$criteria->addCondition('episode_id is null');
+
+		$last_refno = Referral::model()
+			->with(array(
+				'episodeAssignment',
+			))
+			->find($criteria)->id;
 
 		// Get new referrals
 		$pas_referrals = PAS_Referral::model()->findAll("REFNO > :last_refno AND REF_SPEC <> 'OP'", array(
@@ -259,7 +260,5 @@ class PasReferral {
 		} else {
 			Yii::log("No referrals found in PAS for patient id $episode->patient_id (rm_patient_no $rm_patient_no)",'trace');
 		}
-
 	}
-
 }
