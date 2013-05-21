@@ -1,0 +1,6 @@
+#admin_merged_patients ul li { padding: 0; margin: 0; line-height: 15px; font-size: 11px; }
+#admin_merged_patients ul li .column_id { width: 20px; display: inline-block; }
+#admin_merged_patients ul li .column_oe { width: 350px; display: inline-block; }
+#admin_merged_patients ul li .column_pas { width: 350px; display: inline-block; }
+#admin_merged_patients ul li .column_action { width: 100px; display: inline-block; }
+#admin_merged_patients button span { line-height: 5px; }
