@@ -31,10 +31,12 @@ class PasObserver {
 			return;
 		}
 
-		// Check to see if we are buffering updates
-		if(Yii::app()->mehpas_buffer->getBuffering()) {
-			Yii::app()->mehpas_buffer->addPatient($patient);
-			return;
+		if (PHP_SAPI != 'cli') {
+			// Check to see if we are buffering updates
+			if(Yii::app()->mehpas_buffer->getBuffering()) {
+				Yii::app()->mehpas_buffer->addPatient($patient);
+				return;
+			}
 		}
 		
 		// Check if stale
@@ -74,9 +76,11 @@ class PasObserver {
 		$gp = $params['gp'];
 
 		// Check to see if we are buffering updates
-		if(Yii::app()->mehpas_buffer->getBuffering()) {
-			Yii::app()->mehpas_buffer->addGp($gp);
-			return;
+		if (PHP_SAPI != 'cli') {
+			if(Yii::app()->mehpas_buffer->getBuffering()) {
+				Yii::app()->mehpas_buffer->addGp($gp);
+				return;
+			}
 		}
 		
 		// Check if stale
@@ -116,9 +120,11 @@ class PasObserver {
 		$practice = $params['practice'];
 
 		// Check to see if we are buffering updates
-		if(Yii::app()->mehpas_buffer->getBuffering()) {
-			Yii::app()->mehpas_buffer->addPractice($practice);
-			return;
+		if (PHP_SAPI != 'cli') {
+			if(Yii::app()->mehpas_buffer->getBuffering()) {
+				Yii::app()->mehpas_buffer->addPractice($practice);
+				return;
+			}
 		}
 		
 		// Check if stale
