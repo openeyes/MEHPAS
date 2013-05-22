@@ -142,23 +142,23 @@ class MergedPatientService {
 	public function resolveMerged($patient) {
 		$this->lastMessage = '';
 
-		$patient = Patient::model()->find('hos_num=?',array($patient['hos_num']));
+		$_patient = Patient::model()->find('hos_num=?',array($patient['hos_num']));
 
 		if ($new_patient = Patient::model()->find('hos_num=?',array($patient['new_hos_num']))) {
-			if ($new_patient->id != $patient->id) {
-				if (Episode::model()->find('patient_id=?',array($patient->id))) {
-					$this->migrateEpisodes($patient,$new_patient);
+			if ($new_patient->id != $_patient->id) {
+				if (Episode::model()->find('patient_id=?',array($_patient->id))) {
+					$this->migrateEpisodes($_patient,$new_patient);
 					$this->log('migrated episodes');
 				}
-				$this->migratePatientAssignments($patient,$new_patient);
-				$this->deletePatient($patient);
+				$this->migratePatientAssignments($_patient,$new_patient);
+				$this->deletePatient($_patient);
 				$this->log('old patient deleted');
 			} else {
 				$this->log('same patient');
 			}
 		} else {
-			Yii::app()->db->createCommand("update patient set hos_num = '{$patient['new_hos_num']}', pas_key = '{$patient['new_hos_num']}' where hos_num = '$patient->hos_num'")->query();
-			Yii::app()->db->createCommand("update pas_assignment set external_id = '{$patient['new_rm_patient_no']}' where internal_type = 'Patient' and internal_id = $patient->id")->query();
+			Yii::app()->db->createCommand("update patient set hos_num = '{$patient['new_hos_num']}', pas_key = '{$patient['new_hos_num']}' where hos_num = '$_patient->hos_num'")->query();
+			Yii::app()->db->createCommand("update pas_assignment set external_id = '{$patient['new_rm_patient_no']}' where internal_type = 'Patient' and internal_id = $_patient->id")->query();
 			$this->log('migrated patient');
 		}
 
