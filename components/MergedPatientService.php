@@ -159,6 +159,7 @@ class MergedPatientService {
 		} else {
 			Yii::app()->db->createCommand("update patient set hos_num = '{$patient['new_hos_num']}', pas_key = '{$patient['new_hos_num']}' where hos_num = '$_patient->hos_num'")->query();
 			Yii::app()->db->createCommand("update pas_assignment set external_id = '{$patient['new_rm_patient_no']}' where internal_type = 'Patient' and internal_id = $_patient->id")->query();
+			Yii::app()->db->createCommand("delete from pas_patient_merged where patient_id = {$_patient->id}")->query();
 			$this->log('migrated patient');
 		}
 
@@ -185,6 +186,7 @@ class MergedPatientService {
 
 	public function deletePatient($patient) {
 		Yii::app()->db->createCommand("delete from audit where patient_id = $patient->id")->query();
+		Yii::app()->db->createCommand("delete from pas_patient_merged where patient_id = $patient->id")->query();
 		Yii::app()->db->createCommand("delete from patient where id = $patient->id")->query();
 		Yii::app()->db->createCommand("delete from pas_assignment where internal_type = 'Patient' and internal_id = $patient->id")->query();
 	}

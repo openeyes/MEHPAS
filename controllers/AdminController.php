@@ -18,83 +18,26 @@
  */
 
 class AdminController extends ModuleAdminController {
-
 	public function actionMergedPatients() {
-		$this->render('mergedpatients',array('patients'=>PAS_Patient_Merged::model()->findAll(array('order'=>'id asc'))));
+		Yii::app()->event->dispatch('start_batch_mode');
+		$patients = PAS_Patient_Merged::model()->with('patient')->findAll(array('order'=>'t.id asc'));
+		Yii::app()->event->dispatch('end_batch_mode');
+
+		$this->render('mergedpatients',array('patients'=>$patients));
 	}
 
-	public function actionCreatePostOpDrug() {
-		if (empty($_POST['name'])) {
-			throw new Exception("Missing name");
-		}
+	public function actionDoMerge() {
+		Yii::app()->event->dispatch('start_batch_mode');
 
-		if ($drug = PostopDrug::model()->find(array('order'=>'display_order desc'))) {
-			$display_order = $drug->display_order+1;
-		} else {
-			$display_order = 1;
-		}
-
-		$drug = new PostopDrug;
-		$drug->name = @$_POST['name'];
-		$drug->display_order = $display_order;
-
-		if (!$drug->save()) {
-			echo json_encode(array('errors'=>$drug->getErrors()));
-			return;
-		}
-
-		// TODO: this is a hack for the Orbis demo and should be removed when full site/subspecialty functionality has been implemented
-		$specialty = Specialty::model()->find('code=?',array('OPH'));
-		foreach (Site::model()->findAll('institution_id=?',array(1)) as $site) {
-			foreach (Subspecialty::model()->findAll('specialty_id=?',array($specialty->id)) as $subspecialty) {
-				$ssd = new PostopSiteSubspecialtyDrug;
-				$ssd->site_id = $site->id;
-				$ssd->subspecialty_id = $subspecialty->id;
-				$ssd->drug_id = $drug->id;
-				if (!$ssd->save()) {
-					echo json_encode(array('errors'=>$ssd->getErrors()));
-				}
+		foreach ($_POST['id'] as $merged_id) {
+			if (!$merged = PAS_Patient_Merged::model()->findByPk($merged_id)) {
+				throw new Exception("Merged patient not found: $merged_id");
 			}
+
+			$merged->resolveMerged();
 		}
 
-		echo json_encode(array('id'=>$drug->id,'errors'=>array()));
-	}
-
-	public function actionUpdatePostOpDrug() {
-		if (!$drug = PostopDrug::model()->findByPk(@$_POST['id'])) {
-			throw new Exception("Drug not found: ".@$_POST['id']);
-		}
-
-		$drug->name = @$_POST['name'];
-		if (!$drug->save()) {
-			echo json_encode(array('errors'=>$drug->getErrors()));
-			return;
-		}
-
-		echo json_encode(array('errors'=>array()));
-	}
-
-	public function actionDeletePostOpDrug($id) {
-		if ($drug = PostopDrug::model()->findByPk($id)) {
-			$drug->deleted = 1;
-			if ($drug->save()) {
-				echo "1";
-				return;
-			}
-		}
-		echo "0";
-	}
-
-	public function actionSortPostOpDrugs() {
-		if (!empty($_POST['order'])) {
-			foreach ($_POST['order'] as $i => $id) {
-				if ($drug = PostopDrug::model()->findByPk($id)) {
-					$drug->display_order = $i+1;
-					if (!$drug->save()) {
-						throw new Exception("Unable to save drug: ".print_r($drug->getErrors(),true));
-					}
-				}
-			}
-		}
+		Yii::app()->event->dispatch('end_batch_mode');
+		echo "1";
 	}
 }

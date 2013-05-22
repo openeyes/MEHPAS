@@ -95,4 +95,14 @@ class PAS_Patient_Merged extends BaseActiveRecord
 			'criteria'=>$criteria,
 		));
 	}
+
+	public function resolveMerged() {
+		$mps = new MergedPatientService;
+
+		$mps->resolveMerged(array(
+			'hos_num' => $this->patient->hos_num,
+			'new_hos_num' => $this->new_hos_num,
+			'new_rm_patient_no' => $this->new_rm_patient_no,
+		));
+	}
 }
