@@ -28,6 +28,8 @@ class MergedPatientsCommand extends CConsoleCommand {
 
 		echo "done\n";
 
+		$newMerged = 0;
+
 		foreach ($patients as $patient) {
 			echo "Processing {$patient['hos_num']} ({$patient['type']}): ";
 
@@ -47,11 +49,18 @@ class MergedPatientsCommand extends CConsoleCommand {
 							echo "FAILED ($mps->lastMessage)\n";
 						}
 					} else {
-						$mps->markMerged($patient);
+						$newMerged += $mps->markMerged($patient);
 						echo "FAILED (patient names don't match)\n";
 					}
 					break;
 			}
 		}
+
+		$message = Yii::app()->mailer->newMessage();
+		$message->setFrom(array("devteam@openeyes.org.uk" => "Dev team"));
+		$message->setTo(array(Yii::app()->params['helpdesk_email']));
+		$message->setSubject("New merged patients detected");
+		$message->setBody("New merged patients were detected, please see: http://openeyes.moorfields.nhs.uk/mehpas/admin/mergedPatients");
+		Yii::app()->mailer->sendMessage($message);
 	}
 }
