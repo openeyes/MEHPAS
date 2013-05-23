@@ -41,7 +41,7 @@ class PasReferral {
 				),
 				'referralAssignment',
 			))
-			->findAll($criteria) {
+			->findAll($criteria) as $episode) {
 
 			if ($referral = $this->getReferral($episode->patient_id, $episode->firm->service_subspecialty_assignment_id)) {
 				Yii::log("Found referral_id $referral->id for episode_id ".$episode->id.", creating assignment", 'trace');
