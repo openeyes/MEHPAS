@@ -366,6 +366,8 @@ class PasService {
 				}
 				if($nhs_number = $pas_patient->nhs_number) {
 					$patient_attrs['nhs_num'] = $nhs_number->NUMBER_ID;
+				} else {
+					$patient_attrs['nhs_num'] = '';
 				}
 
 				$patient->attributes = $patient_attrs;
