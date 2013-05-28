@@ -3,7 +3,7 @@
  * OpenEyes
  *
  * (C) Moorfields Eye Hospital NHS Foundation Trust, 2008-2011
- * (C) OpenEyes Foundation, 2011-2012
+ * (C) OpenEyes Foundation, 2011-2013
  * This file is part of OpenEyes.
  * OpenEyes is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
  * OpenEyes is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
@@ -13,7 +13,7 @@
  * @link http://www.openeyes.org.uk
  * @author OpenEyes <info@openeyes.org.uk>
  * @copyright Copyright (c) 2008-2011, Moorfields Eye Hospital NHS Foundation Trust
- * @copyright Copyright (c) 2011-2012, OpenEyes Foundation
+ * @copyright Copyright (c) 2011-2013, OpenEyes Foundation
  * @license http://www.gnu.org/licenses/gpl-3.0.html The GNU General Public License V3.0
  */
 
@@ -122,20 +122,28 @@ class PasService {
 					}
 	
 					// Save
-					$gp->save();
+					if(!$gp->save()) {
+						throw new CException('Cannot save gp: '.print_r($gp->getErrors(),true));
+					}
 	
 					$contact->parent_id = $gp->id;
-					$contact->save();
+					if(!$contact->save()) {
+						throw new CException('Cannot save gp contact: '.print_r($contact->getErrors(),true));
+					}
 	
 					if($address) {
 						$address->parent_id = $contact->id;
-						$address->save();
+						if(!$address->save()) {
+							throw new CException('Cannot save gp contact address: '.print_r($address->getErrors(),true));
+						}
 					} else {
 						Yii::log("GP has no address|id: {$gp->id}, obj_prof: {$gp->obj_prof}", 'warning', 'application.action');
 					}
 	
 					$assignment->internal_id = $gp->id;
-					$assignment->save();
+					if(!$assignment->save()) {
+						throw new CException('Cannot save gp assignment: '.print_r($assignment->getErrors(),true));
+					}
 	
 				} else {
 					
@@ -151,7 +159,9 @@ class PasService {
 						$patients_updated = 0;
 						foreach($patients as $patient) {
 							$patient->gp_id = null;
-							$patient->save();
+							if(!$patient->save()) {
+								throw new CException('Cannot save patient: '.print_r($patient->getErrors(),true));
+							}
 							$patients_updated++;
 						}
 						Yii::log("Updated $patients_updated patients", 'trace');
@@ -220,17 +230,23 @@ class PasService {
 					}
 	
 					// Save
-					$practice->save();
+					if(!$practice->save()) {
+						throw new CException('Cannot save practice: '.print_r($practice->getErrors(),true));
+					}
 	
 					if($address) {
 						$address->parent_id = $practice->id;
-						$address->save();
+						if(!$address->save()) {
+							throw new CException('Cannot save practice address: '.print_r($address->getErrors(),true));
+						}
 					} else {
 						Yii::log("Practice has no address|id: {$practice->id}, code: {$practice->code}", 'warning', 'application.action');
 					}
 	
 					$assignment->internal_id = $practice->id;
-					$assignment->save();
+					if(!$assignment->save()) {
+						throw new CException('Cannot save practice assignment: '.print_r($assignment->getErrors(),true));
+					}
 	
 				} else {
 					// Practice not in PAS (or at least no active records), so we should remove it and it's assignment from OpenEyes
@@ -245,7 +261,9 @@ class PasService {
 						$patients_updated = 0;
 						foreach($patients as $patient) {
 							$patient->practice_id = null;
-							$patient->save();
+							if(!$patient->save()) {
+								throw new CException('Cannot save patient: '.print_r($patient->getErrors(),true));
+							}
 							$patients_updated++;
 						}
 						Yii::log("Updated $patients_updated patients", 'trace');
@@ -298,10 +316,15 @@ class PasService {
 			if($pas_patient = $assignment->external) {
 				Yii::log("Found patient in PAS", 'trace');
 				$patient_attrs = array(
-						'gender' =>$pas_patient->SEX,
+						'gender' => $pas_patient->SEX,
 						'dob' => $pas_patient->DATE_OF_BIRTH,
 						'date_of_death' => $pas_patient->DATE_OF_DEATH,
 				);
+				if($ethnic_group = EthnicGroup::model()->findByAttributes(array('code' => $pas_patient->ETHNIC_GRP))) {
+					$patient_attrs['ethnic_group_id'] = $ethnic_group->id;
+				} else {
+					$patient_attrs['ethnic_group_id'] = null;
+				}
 				if($hos_num = $pas_patient->hos_number) {
 					$hos_num = $hos_num->NUM_ID_TYPE . $hos_num->NUMBER_ID;
 					$patient_attrs['pas_key'] = $hos_num;
@@ -309,6 +332,8 @@ class PasService {
 				}
 				if($nhs_number = $pas_patient->nhs_number) {
 					$patient_attrs['nhs_num'] = $nhs_number->NUMBER_ID;
+				} else {
+					$patient_attrs['nhs_num'] = '';
 				}
 
 				$patient->attributes = $patient_attrs;
@@ -403,7 +428,9 @@ class PasService {
 				}
 
 				// Save
-				$patient->save();
+				if(!$patient->save()) {
+					throw new CException('Cannot save patient: '.print_r($patient->getErrors(),true));
+				}
 
 				$contact->parent_id = $patient->id;
 				$contact->title = $this->fixCase($pas_patient->name->TITLE);
@@ -413,10 +440,14 @@ class PasService {
 					// Get primary phone from patient's main address
 					$contact->primary_phone = $pas_patient->address->TEL_NO;
 				}
-				$contact->save();
+				if(!$contact->save()) {
+					throw new CException('Cannot save patient contact: '.print_r($contact->getErrors(),true));
+				}
 
 				$assignment->internal_id = $patient->id;
-				$assignment->save();
+				if(!$assignment->save()) {
+					throw new CException('Cannot save patient assignment: '.print_r($assignment->getErrors(),true));
+				}
 
 				// Addresses
 				if($pas_patient->addresses) {
@@ -443,7 +474,9 @@ class PasService {
 						}
 
 						$this->updateAddress($address, $pas_address);
-						$address->save();
+	 					if(!$address->save()) {
+							throw new CException('Cannot save patient address: '.print_r($address->getErrors(),true));
+						}
 						$matched_address_ids[] = $address->id;
 					}
 
@@ -701,13 +734,6 @@ class PasService {
 	 */
 	protected function updateAddress($address, $data) {
 
-		$address1 = '';
-		$address2 = '';
-		$city = '';
-		$county = '';
-		$postcode = '';
-		$town = '';
-
 		$propertyName = trim($data->PROPERTY_NAME);
 		$propertyNumber = trim($data->PROPERTY_NO);
 
@@ -759,76 +785,114 @@ class PasService {
 			}
 		} 
 
-		// Instantiate a postcode utility object
-		$postCodeUtility = new PostCodeUtility();
-
-		// Set flags and default values
-		$postCodeFound = false;
-		$postCodeOuter = '';
-		$townFound = false;
-		$countyFound = false;
-		$address2 = '';
-
-		// Go through array looking for likely candidates for postcode, town/city and county
-		for ($index = 0; $index < count($addressLines); $index++) {
-			// Is element a postcode? (Postcodes may exist in other address lines)
-			if ($postCodeArray = $postCodeUtility->parsePostCode($addressLines[$index])) {
-				if (!$postCodeFound) {
-					$postCodeFound = true;
-					$postcode = $postCodeArray['full'];
-					$postCodeOuter = $postCodeArray['outer'];
-				}
-			} else { // Otherwise a string
-				// Last in (inverted array) is a non-postcode, non-city second address line
-				if ($townFound) {
-					$address2 = trim($addressLines[$index]);
-				}
-
-				// County?
-				if (!$countyFound) {
-					if ($postCodeUtility->isCounty($addressLines[$index])) {
-						$countyFound = true;
-						$county = trim($addressLines[$index]);
-					}
-				}
-
-				// Town?
-				if (!$townFound) {
-					if ($postCodeUtility->isTown($addressLines[$index])) {
-						$townFound = true;
-						$town = trim($addressLines[$index]);
-					}
-				}
-			}
+		// See if we can find a country
+		$country = null;
+		$index = 0;
+		while(!$country && $index < count($addressLines)) {
+			$country = Country::model()->find('LOWER(name) = :name', array(':name' => strtolower($addressLines[$index])));
+			$index++;
 		}
-
-		// If no town or county found, get them from postcode data if available, otherwise fall back to best guess
-		if ($postCodeFound) {
-			if (!$countyFound) $county = $postCodeUtility->countyForOuterPostCode($postCodeOuter);
-			if (!$townFound) $town = $postCodeUtility->townForOuterPostCode($postCodeOuter);
+		if($country) {
+			// Found a country, so we will remove the line from the address
+			unset($addressLines[$index-1]);
 		} else {
-			// Number of additional address lines
-			$extraLines = count($addressLines) - 1;
-			if ($extraLines > 1) {
-				$county = trim($addressLines[0]);
-				$town = trim($addressLines[1]);
-			} elseif ($extraLines > 0) {
-				$town = trim($addressLines[0]);
+			// Cannot find country, so we assume it is UK
+			$country = Country::model()->findByAttributes(array('name' => 'United Kingdom'));
+		}
+		
+		$address2 = '';
+		$town = '';
+		$county = '';
+		$postcode = '';
+		if($country->name == 'United Kingdom') {
+			// We've got a UK address, so we'll see if we can parse the remaining tokens,
+
+			// Instantiate a postcode utility object
+			$postCodeUtility = new PostCodeUtility();
+			
+			// Set flags and default values
+			$postCodeFound = false;
+			$postCodeOuter = '';
+			$townFound = false;
+			$countyFound = false;
+			
+			// Go through array looking for likely candidates for postcode, town/city and county
+			for ($index = 0; $index < count($addressLines); $index++) {
+				// Is element a postcode? (Postcodes may exist in other address lines)
+				if ($postCodeArray = $postCodeUtility->parsePostCode($addressLines[$index])) {
+					if (!$postCodeFound) {
+						$postCodeFound = true;
+						$postcode = $postCodeArray['full'];
+						$postCodeOuter = $postCodeArray['outer'];
+					}
+				} else { // Otherwise a string
+					// Last in (inverted array) is a non-postcode, non-city second address line
+					if ($townFound) {
+						$address2 = trim($addressLines[$index]);
+					}
+			
+					// County?
+					if (!$countyFound) {
+						if ($postCodeUtility->isCounty($addressLines[$index])) {
+							$countyFound = true;
+							$county = trim($addressLines[$index]);
+						}
+					}
+			
+					// Town?
+					if (!$townFound) {
+						if ($postCodeUtility->isTown($addressLines[$index])) {
+							$townFound = true;
+							$town = trim($addressLines[$index]);
+						}
+					}
+				}
+			}
+			
+			// If no town or county found, get them from postcode data if available, otherwise fall back to best guess
+			if ($postCodeFound) {
+				if (!$countyFound) $county = $postCodeUtility->countyForOuterPostCode($postCodeOuter);
+				if (!$townFound) $town = $postCodeUtility->townForOuterPostCode($postCodeOuter);
+			} else {
+				// Number of additional address lines
+				$extraLines = count($addressLines) - 1;
+				if ($extraLines > 1) {
+					$county = trim($addressLines[0]);
+					$town = trim($addressLines[1]);
+				} elseif ($extraLines > 0) {
+					$town = trim($addressLines[0]);
+				}
+			}
+			
+			// Dedupe
+			if (isset($county) && isset($town) && $town == $county) {
+				$county = '';
+			}
+		} else {
+			// We've got a non UK address, so we'll just try to store things whereever they fit
+			if(trim($data->POSTCODE)) {
+				$postcode = array_shift($addressLines);
+			} else {
+				$postcode = '';
+			}
+			if(count($addressLines)) {
+				$address2 = array_pop($addressLines);
+			}
+			if(count($addressLines)) {
+				$town = array_pop($addressLines);
+			}
+			if(count($addressLines)) {
+				$county = implode(', ', $addressLines);
 			}
 		}
-
-		// Dedupe
-		if (isset($county) && isset($town) && $town == $county) {
-			$county = '';
-		}
+		
 
 		// Store data
 		$address->address1 = $this->fixCase($address1);
 		$address->address2 = $this->fixCase($address2);
 		$address->city = $this->fixCase($town);
 		$address->county = $this->fixCase($county);
-		$unitedKingdom = Country::model()->findByAttributes(array('name' => 'United Kingdom'));
-		$address->country_id = $unitedKingdom->id;
+		$address->country_id = $country->id;
 		$address->postcode = strtoupper($postcode);
 		$address->type = $data->ADDR_TYPE;
 		$address->date_start = $data->DATE_START;
