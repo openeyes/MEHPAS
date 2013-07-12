@@ -1,8 +1,9 @@
 <?php
 
-class m120327_154617_pas_assignment extends CDbMigration {
-	public function up() {
-
+class m120327_154617_pas_assignment extends CDbMigration
+{
+	public function up()
+	{
 		// Create new PAS mapping table to hold foreign keys
 		$this->createTable('pas_assignment', array(
 				'id' => 'int(10) unsigned NOT NULL AUTO_INCREMENT',
@@ -22,15 +23,18 @@ class m120327_154617_pas_assignment extends CDbMigration {
 
 	}
 
-	public function down() {
+	public function down()
+	{
 		$this->dropTable('pas_assignment');
 	}
 
-	public function safeUp() {
+	public function safeUp()
+	{
 		$this->up();
 	}
 
-	public function safeDown() {
+	public function safeDown()
+	{
 		$this->down();
 	}
 

@@ -17,8 +17,10 @@
  * @license http://www.gnu.org/licenses/gpl-3.0.html The GNU General Public License V3.0
  */
 
-class AdminController extends ModuleAdminController {
-	public function actionMergedPatients() {
+class AdminController extends ModuleAdminController
+{
+	public function actionMergedPatients()
+	{
 		Yii::app()->event->dispatch('start_batch_mode');
 		$patients = PAS_Patient_Merged::model()->with('patient')->findAll(array('order'=>'t.id asc'));
 		Yii::app()->event->dispatch('end_batch_mode');
@@ -26,7 +28,8 @@ class AdminController extends ModuleAdminController {
 		$this->render('mergedpatients',array('patients'=>$patients));
 	}
 
-	public function actionDoMerge() {
+	public function actionDoMerge()
+	{
 		Yii::app()->event->dispatch('start_batch_mode');
 
 		foreach ($_POST['id'] as $merged_id) {

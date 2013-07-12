@@ -18,17 +18,20 @@
  * @todo This command is currently disabled until the referral code is fixed
  */
 
-class VerifyPasAssignmentCommand extends CConsoleCommand {
-
-	public function getName() {
+class VerifyPasAssignmentCommand extends CConsoleCommand
+{
+	public function getName()
+	{
 		return 'VerifyPasAssignment';
 	}
 
-	public function getHelp() {
+	public function getHelp()
+	{
 		return "Checks the records in the assignment table still match have a matching PAS patient\n";
 	}
 
-	public function run($args) {
+	public function run($args)
+	{
 		$pas_service = new PasService();
 		if ($pas_service->isAvailable()) {
 			$this->verifyPatientPasAssignment();
@@ -39,8 +42,8 @@ class VerifyPasAssignmentCommand extends CConsoleCommand {
 		}
 	}
 
-	protected function verifyPatientPasAssignment() {
-
+	protected function verifyPatientPasAssignment()
+	{
 		// Checks all the patient assignments are still valid in PAS
 		$patients = Yii::app()->db->createCommand()
 		->select('external_id')
@@ -51,9 +54,9 @@ class VerifyPasAssignmentCommand extends CConsoleCommand {
 		echo "There are ".count($patients)." patient assignments, processing...\n";
 
 		$count = 0;
-		foreach($patients as $patient) {
+		foreach ($patients as $patient) {
 			$count++;
-			if($count % 100 == 0) {
+			if ($count % 100 == 0) {
 				echo ".";
 			}
 			$rm_patient_no = $patient['external_id'];
@@ -61,10 +64,10 @@ class VerifyPasAssignmentCommand extends CConsoleCommand {
 					':rm_patient_no' => $rm_patient_no,
 			));
 
-			if(count($pas_patient) == 1) {
+			if (count($pas_patient) == 1) {
 				// Found a single match
 				Yii::log("Found match in PAS for rm_patient_no $rm_patient_no", 'trace');
-			} else if(count($pas_patient) > 1) {
+			} else if (count($pas_patient) > 1) {
 				// Found more than one match
 				echo "Found more than one match in PAS for rm_patient_no $rm_patient_no\n";
 			} else {
@@ -77,8 +80,8 @@ class VerifyPasAssignmentCommand extends CConsoleCommand {
 		echo "\nDone.\n";
 	}
 
-	protected function verifyGpPasAssignment() {
-
+	protected function verifyGpPasAssignment()
+	{
 		// Checks all the gp assignments are still valid in PAS
 		$gps = Yii::app()->db->createCommand()
 		->select('external_id')
@@ -89,15 +92,15 @@ class VerifyPasAssignmentCommand extends CConsoleCommand {
 		echo "There are ".count($gps)." gp assignments, processing...\n";
 
 		$count = 0;
-		foreach($gps as $gp) {
+		foreach ($gps as $gp) {
 			$count++;
-			if($count % 100 == 0) {
+			if ($count % 100 == 0) {
 				echo ".";
 			}
 			$obj_prof = $gp['external_id'];
 			$pas_gp = PAS_Gp::model()->findByExternalId($obj_prof);
 
-			if($pas_gp) {
+			if ($pas_gp) {
 				// Found a match
 				Yii::log("Found a match in PAS for obj_prof $obj_prof", 'trace');
 			} else {

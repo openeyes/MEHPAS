@@ -13,4 +13,3 @@ return array(
 				//'mehpas_bad_gps' => array(),
 		),
 );
-

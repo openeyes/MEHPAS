@@ -18,17 +18,20 @@
  * @todo This command is currently disabled until the referral code is fixed
  */
 
-class PopulatePracticesCommand extends CConsoleCommand {
-
-	public function getName() {
+class PopulatePracticesCommand extends CConsoleCommand
+{
+	public function getName()
+	{
 		return 'PopulatePractices';
 	}
 
-	public function getHelp() {
+	public function getHelp()
+	{
 		return "Imports practice data for every patient currently in on the waiting list\n";
 	}
 
-	public function run($args) {
+	public function run($args)
+	{
 		$patient_ids = Yii::app()->db->createCommand()
 		->select('patient_id')
 		->from('element_operation')
@@ -36,9 +39,9 @@ class PopulatePracticesCommand extends CConsoleCommand {
 		->join('episode', 'episode.id = event.episode_id')
 		->where('element_operation.status IN (0,2)')
 		->queryColumn();
-		foreach($patient_ids as $patient_id) {
+		foreach ($patient_ids as $patient_id) {
 			$patient = Patient::model()->findByPk($patient_id);
-			if($patient) {
+			if ($patient) {
 				echo ".";
 			} else {
 				echo "!";

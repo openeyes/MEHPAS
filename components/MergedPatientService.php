@@ -17,10 +17,12 @@
  * @license http://www.gnu.org/licenses/gpl-3.0.html The GNU General Public License V3.0
  */
 
-class MergedPatientService {
+class MergedPatientService
+{
 	public $lastMessage;
 
-	public function findBrokenPatients() {
+	public function findBrokenPatients()
+	{
 		$patients = Yii::app()->db->createCommand()
 		->select('patient.id, external_id, patient.pas_key, patient.hos_num, contact.first_name, contact.last_name')
 		->from('pas_assignment')
@@ -65,7 +67,8 @@ class MergedPatientService {
 		return $results;
 	}
 
-	public function inferMergedPatient($pas_key, $first_name, $last_name, $hos_num) {
+	public function inferMergedPatient($pas_key, $first_name, $last_name, $hos_num)
+	{
 		foreach (array($hos_num,'1'.$hos_num,'0'.$hos_num,'00'.$hos_num) as $value) {
 			if ($cn = PAS_CaseNote::model()->find('C_CN=?',array($value))) {
 				if ($p = PAS_Patient::model()->find('RM_PATIENT_NO=?',array($cn['X_CN']))) {
@@ -93,14 +96,16 @@ class MergedPatientService {
 		return false;
 	}
 
-	public function log($message) {
+	public function log($message)
+	{
 		if ($this->lastMessage) {
 			$this->lastMessage .= ', ';
 		}
 		$this->lastMessage .= $message;
 	}
 
-	public function resolveDupe($patient) {
+	public function resolveDupe($patient)
+	{
 		$this->lastMessage = '';
 
 		$patients = array();
@@ -139,7 +144,8 @@ class MergedPatientService {
 		return false;
 	}
 
-	public function resolveMerged($patient) {
+	public function resolveMerged($patient)
+	{
 		$this->lastMessage = '';
 
 		$_patient = Patient::model()->find('hos_num=?',array($patient['hos_num']));
@@ -166,7 +172,8 @@ class MergedPatientService {
 		return true;
 	}
 
-	public function markMerged($patient) {
+	public function markMerged($patient)
+	{
 		if (!$ppm = PAS_Patient_Merged::model()->find('patient_id=? and new_hos_num=? and new_rm_patient_no=?',array($patient['id'],$patient['new_hos_num'],$patient['new_rm_patient_no']))) {
 			$ppm = new PAS_Patient_Merged;
 			$ppm->patient_id = $patient['id'];
@@ -184,14 +191,16 @@ class MergedPatientService {
 		return true;
 	}
 
-	public function deletePatient($patient) {
+	public function deletePatient($patient)
+	{
 		Yii::app()->db->createCommand("delete from audit where patient_id = $patient->id")->query();
 		Yii::app()->db->createCommand("delete from pas_patient_merged where patient_id = $patient->id")->query();
 		Yii::app()->db->createCommand("delete from patient where id = $patient->id")->query();
 		Yii::app()->db->createCommand("delete from pas_assignment where internal_type = 'Patient' and internal_id = $patient->id")->query();
 	}
 
-	public function migrateEpisodes($old_patient, $new_patient) {
+	public function migrateEpisodes($old_patient, $new_patient)
+	{
 		foreach (Episode::model()->findAll('patient_id=?',array($old_patient->id)) as $episode) {
 			if ($new_episode = $this->findMatchingEpisode($episode, $new_patient)) {
 				$this->migrateEvents($episode, $new_episode);
@@ -203,24 +212,28 @@ class MergedPatientService {
 		}
 	}
 
-	public function migrateEvents($episode, $new_episode) {
+	public function migrateEvents($episode, $new_episode)
+	{
 		Yii::app()->db->createCommand("update event set episode_id = $new_episode->id where episode_id = $episode->id")->query();
 		Yii::app()->db->createCommand("update audit set episode_id = $new_episode->id where episode_id = $episode->id")->query();
 	}
 
-	public function reassignEpisode($episode, $new_patient) {
+	public function reassignEpisode($episode, $new_patient)
+	{
 		Yii::app()->db->createCommand("update episode set patient_id = $new_patient->id where id = $episode->id")->query();
 		Yii::app()->db->createCommand("update audit set patient_id = $new_patient->id where episode_id = $episode->id")->query();
 	}
 
-	public function findMatchingEpisode($episode, $patient) {
+	public function findMatchingEpisode($episode, $patient)
+	{
 		if ($episode->legacy) {
 			return Episode::model()->find('patient_id=? and legacy=?',array($patient->id,1));
 		}
 		return $this->findEpisodeWithSSA($patient, $episode->firm->serviceSubspecialtyAssignment);
 	}
 
-	public function findEpisodeWithSSA($patient, $ssa) {
+	public function findEpisodeWithSSA($patient, $ssa)
+	{
 		$firm_ids = array();
 
 		foreach (Firm::model()->findAll('service_subspecialty_assignment_id=?',array($ssa->id)) as $firm) {
@@ -230,7 +243,8 @@ class MergedPatientService {
 		return Episode::model()->find('patient_id=? and firm_id in ('.implode(',',$firm_ids).')',array($patient->id));
 	}
 
-	public function migratePatientAssignments($patient,$new_patient) {
+	public function migratePatientAssignments($patient,$new_patient)
+	{
 		foreach ($patient->contactAssignments as $ca) {
 			if (!PatientContactAssignment::model()->find('patient_id=? and location_id=?',array($new_patient->id,$ca->location_id))) {
 				Yii::app()->db->createCommand("insert into patient_contact_assignment (patient_id,location_id,last_modified_user_id,last_modified_date,created_user_id,created_date) values ($new_patient->id,$ca->location_id,$ca->last_modified_user_id,'$ca->last_modified_date',$ca->created_user_id,'$ca->created_date')")->query();

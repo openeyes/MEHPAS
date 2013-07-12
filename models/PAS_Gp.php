@@ -57,40 +57,46 @@
  * @property string $DATE_TO
  * @property string $HDDR_GROUP
  */
-class PAS_Gp extends MultiActiveRecord {
+class PAS_Gp extends MultiActiveRecord
+{
 	/**
 	 * Returns the static model of the specified AR class.
 	 * @return PAS_Gp the static model class
 	 */
-	public static function model($className=__CLASS__) {
+	public static function model($className=__CLASS__)
+	{
 		return parent::model($className);
 	}
 
 	/**
 	 * @return string the associated db connection name
 	 */
-	public function connectionId() {
+	public function connectionId()
+	{
 		return 'db_pas';
 	}
 
 	/**
 	 * @return string the associated database table name
 	 */
-	public function tableName() {
+	public function tableName()
+	{
 		return 'SILVER.ENV040_PROFDETS';
 	}
 
 	/**
 	 * @return array primary key for the table
 	 */
-	public function primaryKey() {
+	public function primaryKey()
+	{
 		return array('OBJ_TYPE','OBJ_PROF','DATE_FR');
 	}
 
 	/**
 	 * @return array validation rules for model attributes.
 	 */
-	public function rules() {
+	public function rules()
+	{
 		return array(
 				array('OBJ_TYPE, GRADE, ADD_FORM, COMMS', 'length', 'max'=>4),
 				array('OBJ_PROF, BLEEP, REG_ID, NAT_ID, ADD_NUM, PC, PERS_NO, SURG, C_SPEC', 'length', 'max'=>10),
@@ -106,7 +112,8 @@ class PAS_Gp extends MultiActiveRecord {
 	/**
 	 * @return array relational rules.
 	 */
-	public function relations() {
+	public function relations()
+	{
 		return array(
 		);
 	}
@@ -114,7 +121,8 @@ class PAS_Gp extends MultiActiveRecord {
 	/**
 	 * @return array customized attribute labels (name=>label)
 	 */
-	public function attributeLabels() {
+	public function attributeLabels()
+	{
 		return array(
 				'OBJ_TYPE' => 'Obj Type',
 				'OBJ_PROF' => 'Obj Prof',
@@ -160,7 +168,8 @@ class PAS_Gp extends MultiActiveRecord {
 	 * exclude records with a date_to < today
 	 * @param unknown_type $id
 	 */
-	public function findByExternalId($id) {
+	public function findByExternalId($id)
+	{
 		return $this->find(array(
 				'condition' => 'OBJ_PROF = :gp_id AND OBJ_TYPE = \'GMP\' AND ("DATE_TO" IS NULL OR "DATE_TO" >= SYSDATE) AND ("DATE_FR" IS NULL OR "DATE_FR" <= SYSDATE)',
 				'order' => 'DATE_FR DESC',
@@ -174,7 +183,8 @@ class PAS_Gp extends MultiActiveRecord {
 	 * Retrieves a list of models based on the current search/filter conditions.
 	 * @return CActiveDataProvider the data provider that can return the models based on the search/filter conditions.
 	 */
-	public function search() {
+	public function search()
+	{
 		$criteria=new CDbCriteria;
 
 		$criteria->compare('OBJ_TYPE',$this->OBJ_TYPE,true);

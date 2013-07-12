@@ -17,44 +17,52 @@
  * @license http://www.gnu.org/licenses/gpl-3.0.html The GNU General Public License V3.0
  */
 
-class PasUpdateBuffer extends CApplicationComponent {
-	
+class PasUpdateBuffer extends CApplicationComponent
+{
 	protected $_patients;
 	protected $_gps;
 	protected $_practices;
-	
+
 	protected $_buffer = false;
-	
-	public function setBuffering($state) {
+
+	public function setBuffering($state)
+	{
 		$this->_buffer = (bool) $state;
 	}
-	
-	public function getBuffering() {
+
+	public function getBuffering()
+	{
 		return $this->_buffer;
 	}
-	
-	public function addPatient($patient) {
+
+	public function addPatient($patient)
+	{
 		$this->_patients[] = $patient;
 	}
-	
-	public function getPatients() {
+
+	public function getPatients()
+	{
 		return $this->_patients;
 	}
-	
-	public function addPractice($practice) {
+
+	public function addPractice($practice)
+	{
 		$this->_practices[] = $practice;
 	}
-	
-	public function getPractices() {
+
+	public function getPractices()
+	{
 		return $this->_practices;
 	}
-	
-	public function addGp($gp) {
+
+	public function addGp($gp)
+	{
 		$this->_gps[] = $gp;
 	}
-	
-	public function getGps() {
+
+	public function getGps()
+	{
 		return $this->_gps;
 	}
-	
+
 }
