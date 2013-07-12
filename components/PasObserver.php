@@ -53,7 +53,7 @@ class PasObserver
 				$assignment->unlock();
 			}
 
-		} else if (!$assignment) {
+		} elseif (!$assignment) {
 
 			// Error, missing assignment
 			Yii::log("Cannot find Patient assignment|id: {$patient->id}, hos_num: {$patient->hos_num}", 'warning', 'application.action');
@@ -98,7 +98,7 @@ class PasObserver
 				$assignment->unlock();
 			}
 
-		} else if (!$assignment) {
+		} elseif (!$assignment) {
 
 			// Error, missing assignment
 			Yii::log("Cannot find Gp assignment|id: {$gp->id}, obj_prof: {$gp->obj_prof}", 'warning', 'application.action');
@@ -142,7 +142,7 @@ class PasObserver
 				$pas_service->flashPasDown();
 				$assignment->unlock();
 			}
-		} else if (!$assignment) {
+		} elseif (!$assignment) {
 
 			// Error, missing assignment
 			Yii::log("Cannot find Practice assignment|id: {$practice->id}, code: {$practice->code}", 'warning', 'application.action');

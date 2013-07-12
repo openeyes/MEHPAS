@@ -206,7 +206,7 @@ class PopulatePasAssignmentCommand extends CConsoleCommand
 					if ($assignment->external_type != 'PAS_Patient' || $assignment->external_id != $patient_no[0]->RM_PATIENT_NO) {
 						throw new CException("Conflicting pas_assignment for internal_type=Patient internal_id={$patient['id']}: wanted to insert external_type=PAS_Patient external_id={$patient_no[0]->RM_PATIENT_NO} but already have external_type=PAS_Patient external_id={$assignment->external_id}");
 					}
-				} else if ($assignment = PasAssignment::model()->find('external_type=? and external_id=?',array('PAS_Patient',$patient_no[0]->RM_PATIENT_NO))) {
+				} elseif ($assignment = PasAssignment::model()->find('external_type=? and external_id=?',array('PAS_Patient',$patient_no[0]->RM_PATIENT_NO))) {
 					if ($assignment->internal_type != 'Patient' || $assignment->internal_id != $patient['id']) {
 						throw new CException("Conflicting pas_assignment for external_type=PAS_Patient external_id={$patient_no[0]->RM_PATIENT_NO}: wanted to insert internal_type=Patient internal_id={$patient['id']} but already have internal_type=Patient internal_id={$assignment->internal_id}");
 					}
@@ -219,7 +219,7 @@ class PopulatePasAssignmentCommand extends CConsoleCommand
 					$assignment->save();
 					$results['updated']++;
 				}
-			} else if (count($patient_no) > 1) {
+			} elseif (count($patient_no) > 1) {
 				// Found more than one match
 				echo "Found more than one match in PAS for hos_num $hos_num, cannot create assignment\n";
 				$results['skipped']++;

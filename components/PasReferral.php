@@ -192,7 +192,7 @@ class PasReferral
 		if (count($referrals) == 1) {
 			// Found one matching referral, so we assume this is the right one
 			$referral = $referrals[0];
-		} else if (count($referrals) > 1) {
+		} elseif (count($referrals) > 1) {
 			// Found more than one candidate, cannot continue
 			return false;
 		} else {
@@ -214,7 +214,7 @@ class PasReferral
 				// Found one matching referral, so we assume this is the right one
 				Yii::log('One referral found on loose match');
 				$referral = $referrals[0];
-			} else if (count($referrals) > 1) {
+			} elseif (count($referrals) > 1) {
 				// Found more than one candidate, cannot continue
 				Yii::log('More than one referral found on loose match');
 				return false;
@@ -259,7 +259,7 @@ class PasReferral
 			if (!$rea->save()) {
 				throw new CException("Failed to associate referral $referral->id with episode $episode->id: ".print_r($rea->getErrors(), true));
 			}
-		} else if (count($pas_referrals) > 1) {
+		} elseif (count($pas_referrals) > 1) {
 			Yii::log('There were '.count($pas_referrals)." referrals found in PAS for patient id $episode->patient_id (rm_patient_no $rm_patient_no), so none were imported",'trace');
 		} else {
 			Yii::log("No referrals found in PAS for patient id $episode->patient_id (rm_patient_no $rm_patient_no)",'trace');

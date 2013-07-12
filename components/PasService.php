@@ -402,7 +402,7 @@ class PasService
 							$gp_assignment->external_id = $pas_patient_gp->GP_ID;
 							$gp_assignment->external_type = 'PAS_Gp';
 							$gp = $this->updateGpFromPas($gp, $gp_assignment);
-						} else if (!$gp->refresh()) {
+						} elseif (!$gp->refresh()) {
 							// GP has been deleted (probably by an observer)
 							// FIXME: There must be a better way of dealing with this
 							Yii::log("GP was deleted after find", 'trace');
@@ -421,7 +421,7 @@ class PasService
 					}
 					if (!$patient->gp_id && $pas_patient_gp->GP_ID) {
 						Yii::log("Patient GP invalid or not found in PAS|id: {$patient->id}, hos_num: {$patient->hos_num}, gp_id: {$pas_patient_gp->GP_ID}", 'warning', 'application.action');
-					} else if (!$patient->gp_id) {
+					} elseif (!$patient->gp_id) {
 						Yii::log("Patient has no GP|id: {$patient->id}, hos_num: {$patient->hos_num}", 'warning', 'application.action');
 					}
 
@@ -437,7 +437,7 @@ class PasService
 						$practice_assignment->external_id = $pas_patient_gp->PRACTICE_CODE;
 						$practice_assignment->external_type = 'PAS_Practice';
 						$practice = $this->updatePracticeFromPas($practice, $practice_assignment);
-					} else if (!$practice->refresh()) {
+					} elseif (!$practice->refresh()) {
 						// Practice has been deleted (probably by an observer)
 						// FIXME: There must be a better way of dealing with this
 						Yii::log("Practice was deleted after find", 'trace');
@@ -455,7 +455,7 @@ class PasService
 
 					if (!$patient->practice_id && $pas_patient_gp->PRACTICE_CODE) {
 						Yii::log("Patient Practice invalid or not found in PAS|id: {$patient->id}, hos_num: {$patient->hos_num}, practice_code: {$pas_patient_gp->PRACTICE_CODE}", 'warning', 'application.action');
-					} else if (!$patient->practice_id) {
+					} elseif (!$patient->practice_id) {
 						Yii::log("Patient has no Practice|id: {$patient->id}, hos_num: {$patient->hos_num}", 'warning', 'application.action');
 					}
 
@@ -749,7 +749,7 @@ class PasService
 			$patient = Patient::model()->noPas()->findByPk($patient_id);
 			$this->updatePatientFromPas($patient, $assignment);
 			//Yii::log('Updated from PAS','trace');
-		} else if (!$assignment) {
+		} elseif (!$assignment) {
 			//Yii::log('No assignment','trace');
 			// Patient is not in OpenEyes
 			$patient = new Patient();

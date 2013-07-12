@@ -67,7 +67,7 @@ class VerifyPasAssignmentCommand extends CConsoleCommand
 			if (count($pas_patient) == 1) {
 				// Found a single match
 				Yii::log("Found match in PAS for rm_patient_no $rm_patient_no", 'trace');
-			} else if (count($pas_patient) > 1) {
+			} elseif (count($pas_patient) > 1) {
 				// Found more than one match
 				echo "Found more than one match in PAS for rm_patient_no $rm_patient_no\n";
 			} else {
