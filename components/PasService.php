@@ -1078,8 +1078,8 @@ class PasService
 						throw new Exception('Unable to associate legacy event with episode: '.print_r($event->getErrors(),true));
 					}
 
-					if (strtotime($event->datetime) < $earliest) {
-						$earliest = strtotime($event->datetime);
+					if (strtotime($event->created_date) < $earliest) {
+						$earliest = strtotime($event->created_date);
 					}
 				}
 
