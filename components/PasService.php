@@ -205,22 +205,22 @@ class PasService
 		}
 
 		// Commissioning body
-		if (!$commissioning_body = CommissioningBody::model()->find('commissioningbody_type_id = :type_id AND
-					code = :code'), array(':type_id' => $ccg_type->id, ':code' => $code)) {
-			$commissioning_body = new CommissioningBody;
-			$commissioning_body->commissioningbody_type_id = $ccg_type->id;
-			$commissioning_body->code = $pas_practice->OWN_OBJ;
+		if (!$commissioningbody = CommissioningBody::model()->find('commissioningbody_type_id = :type_id AND code = :code',
+		array(':type_id' => $ccg_type->id, ':code' => $code))) {
+			$commissioningbody = new CommissioningBody;
+			$commissioningbody->commissioningbody_type_id = $ccg_type->id;
+			$commissioningbody->code = $code;
 		}
-		$commissioning_body->name = $pas_ccg->OBJ_DESC;
+		$commissioningbody->name = $pas_ccg->OBJ_DESC;
 
 		// Contact
-		if (!$contact = $commissioning_body->contact) {
+		if (!$contact = $commissioningbody->contact) {
 			$contact = new Contact;
 		}
 		if (!$contact->save()) {
 			throw new CException("Unable to save CommissioningBody contact: ".print_r($contact->getErrors(),true));
 		}
-		$commissioning_body->contact_id = $contact->id;
+		$commissioningbody->contact_id = $contact->id;
 
 		// Address
 		$address1 = array();
@@ -249,19 +249,19 @@ class PasService
 			}
 		} else {
 			// Address doesn't look useful, so we'll delete it
-			if ($address = $commissioning_body->contact->address) {
+			if ($address = $commissioningbody->contact->address) {
 				$address->delete();
 				$address = null;
 			}
-			Yii::log("CommissioningBody has no address|id: {$commissioning_body->id}, code: {$commissioning_body->code}", 'warning', 'application.action');
+			Yii::log("CommissioningBody has no address|id: {$commissioningbody->id}, code: {$commissioningbody->code}", 'warning', 'application.action');
 		}
 
 		// Save
-		if (!$commissioning_body->save()) {
-			throw new CException('Cannot save CommissioningBody: '.print_r($commissioning_body->getErrors(),true));
+		if (!$commissioningbody->save()) {
+			throw new CException('Cannot save CommissioningBody: '.print_r($commissioningbody->getErrors(),true));
 		}
 
-		return $commissioning_body;
+		return $commissioningbody;
 
 	}
 
@@ -329,24 +329,26 @@ class PasService
 					}
 
 					// Update assigned CCG
-					$commissioning_body = $this->updateCcgFromPas($pas_practice->OWN_OBJ);
+					$commissioningbody = $this->updateCcgFromPas($pas_practice->OWN_OBJ);
 					if(!$ccg_assignment = CommissioningBodyPracticeAssignment::model()
-						->find('commissioning_body_id = :commissioning_body_id AND practice_id = :practice_id',
-							array(':commissioning_body_id' => $commissioning_body->id, ':practice_id' => $practice->id))) {
+						->find('commissioningbody_id = :commissioningbody_id AND practice_id = :practice_id',
+							array(':commissioningbody_id' => $commissioningbody->id, ':practice_id' => $practice->id))) {
 						$ccg_assignment = new CommissioningBodyPracticeAssignment;
 						$ccg_assignment->practice_id = $practice->id;
-						$ccg_assignment->commissioning_body_id = $commissioning_body->id;
+						$ccg_assignment->commissioningbody_id = $commissioningbody->id;
 						$ccg_assignment->save();
 					}
 
 					// Remove any other CCG assignments
 					$criteria = new CDbCriteria();
-					$criteria->condition = 'practice_id = :practice_id AND commissioningbody_type.shortname = :commissioningbody_type
-						AND commissioning_body_id != :id';
-					$criteria->params = array(':practice_id' => $practice->id, ':commissioningbody_type' => 'CCG', ':id' => $commissioning_body->id);
-					$criteria->join = 'JOIN commissioningbody ON commissioningbody.id = t.commissioningbody_id
-						JOIN commissioningbody_type ON commissioningbody_type.id = commissioningbody.commissioningbody_type_id';
-					CommissioningBodyPracticeAssignment::model()->deleteAll($criteria);
+					$criteria->condition = 'practice_id = :practice_id AND commissioningbody_type.shortname = :commissioningbody_type AND commissioningbody_id != :id';
+					$criteria->join = 'JOIN commissioningbody ON commissioningbody.id = t.commissioningbody_id JOIN commissioningbody_type ON commissioningbody_type.id = commissioningbody.commissioningbody_type_id';
+					$criteria->params = array(':practice_id' => $practice->id, ':commissioningbody_type' => 'CCG', ':id' => $commissioningbody->id);
+					$other_ccgs = array();
+					foreach(CommissioningBodyPracticeAssignment::model()->findAll($criteria) as $other_ccg) {
+						$other_ccgs[] = $other_ccg->id;
+					}
+					CommissioningBodyPracticeAssignment::model()->deleteByPk($other_ccgs);
 
 					// Save
 					if (!$practice->save()) {

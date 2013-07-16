@@ -98,7 +98,7 @@ class PAS_CCG extends MultiActiveRecord
 	public function findByExternalId($id)
 	{
 		return $this->find(array(
-				'condition' => 'OBJ_ORG = :org_id AND OBJ_TYPE = \'PCG\' AND ("DATE_TO" IS NULL OR "DATE_TO" >= SYSDATE) AND ("DATE_FR" IS NULL OR "DATE_FR" <= SYSDATE)',
+				'condition' => 'OBJ_ORG = :org_id AND OBJ_TYPE = \'CLG\' AND ("DATE_TO" IS NULL OR "DATE_TO" >= SYSDATE) AND ("DATE_FR" IS NULL OR "DATE_FR" <= SYSDATE)',
 				'order' => 'DATE_FR DESC',
 				'params' => array(
 						':org_id' => $id
