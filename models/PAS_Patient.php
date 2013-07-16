@@ -71,45 +71,51 @@
  * @property string $SMOKER
  * @property string $NOTES
  */
-class PAS_Patient extends MultiActiveRecord {
-
+class PAS_Patient extends MultiActiveRecord
+{
 	/**
 	 * Returns the static model of the specified AR class.
 	 * @return PAS_Patient the static model class
 	 */
-	public static function model($className=__CLASS__) {
+	public static function model($className=__CLASS__)
+	{
 		return parent::model($className);
 	}
 
 	/**
 	 * @return string the associated db connection name
 	 */
-	public function connectionId() {
+	public function connectionId()
+	{
 		return 'db_pas';
 	}
 
 	/**
 	 * @return string the associated database table name
 	 */
-	public function tableName() {
+	public function tableName()
+	{
 		return 'SILVER.PATIENTS';
 	}
 
 	/**
 	 * @return string primary key for the table
 	 */
-	public function primaryKey() {
+	public function primaryKey()
+	{
 		return 'RM_PATIENT_NO';
 	}
 
-	public function findByExternalId($id) {
+	public function findByExternalId($id)
+	{
 		return $this->findByPk($id);
 	}
 
 	/**
 	 * @return array validation rules for model attributes.
 	 */
-	public function rules() {
+	public function rules()
+	{
 		return array(
 				array('RM_PATIENT_NO, PDS_SCN', 'numerical', 'integerOnly' => true),
 				array('FICT_CLIENT, DISC_CLIENT, MTEL_CS, EMAIL_CS, PDS_FLAG, PDS_DCPL, CTS_FLAG', 'length', 'max' => 1),
@@ -130,7 +136,8 @@ class PAS_Patient extends MultiActiveRecord {
 	/**
 	 * @return array relational rules.
 	 */
-	public function relations() {
+	public function relations()
+	{
 		return array(
 				'names' => array(self::HAS_MANY, 'PAS_PatientSurname', 'RM_PATIENT_NO'),
 				'name' => array(self::HAS_ONE, 'PAS_PatientSurname', 'RM_PATIENT_NO', 'on' => '"name"."SURNAME_TYPE" = \'NO\''),
@@ -163,7 +170,8 @@ class PAS_Patient extends MultiActiveRecord {
 	/**
 	 * @return array customized attribute labels (name => label)
 	 */
-	public function attributeLabels() {
+	public function attributeLabels()
+	{
 		return array(
 				'RM_PATIENT_NO' => 'Patient ID',
 				'FICT_CLIENT' => 'Fict Client',
@@ -221,12 +229,13 @@ class PAS_Patient extends MultiActiveRecord {
 	 * Retrieves a list of models based on the current search/filter conditions.
 	 * @return CActiveDataProvider the data provider that can return the models based on the search/filter conditions.
 	 */
-	public function search() {
+	public function search()
+	{
 		$criteria=new CDbCriteria;
 
 		return new CActiveDataProvider(get_class($this), array(
 				'criteria' => $criteria,
 		));
 	}
-	
+
 }

@@ -17,30 +17,31 @@
  * @license http://www.gnu.org/licenses/gpl-3.0.html The GNU General Public License V3.0
  */
 
-class PasObserver {
-
+class PasObserver
+{
 	/**
 	 * Update patient from PAS
 	 * @param array $params
 	 */
-	public function updatePatientFromPas($params) {
+	public function updatePatientFromPas($params)
+	{
 		// Check to see if patient is in "offline" mode
 		$patient = $params['patient'];
-		if(!$patient->use_pas){
+		if (!$patient->use_pas) {
 			return;
 		}
 
 		if (PHP_SAPI != 'cli') {
 			// Check to see if we are buffering updates
-			if(Yii::app()->mehpas_buffer->getBuffering()) {
+			if (Yii::app()->mehpas_buffer->getBuffering()) {
 				Yii::app()->mehpas_buffer->addPatient($patient);
 				return;
 			}
 		}
-		
+
 		// Check if stale
 		$assignment = PasAssignment::model()->findByInternal('Patient', $patient->id);
-		if($assignment && $assignment->isStale()) {
+		if ($assignment && $assignment->isStale()) {
 
 			// Assignment is stale (and locked ready for update)
 			Yii::log('Patient details stale', 'trace');
@@ -52,7 +53,7 @@ class PasObserver {
 				$assignment->unlock();
 			}
 
-		} else if(!$assignment) {
+		} elseif (!$assignment) {
 
 			// Error, missing assignment
 			Yii::log("Cannot find Patient assignment|id: {$patient->id}, hos_num: {$patient->hos_num}", 'warning', 'application.action');
@@ -71,20 +72,21 @@ class PasObserver {
 	 * Update GP from PAS
 	 * @param array $params
 	 */
-	public function updateGpFromPas($params) {
+	public function updateGpFromPas($params)
+	{
 		$gp = $params['gp'];
 
 		// Check to see if we are buffering updates
 		if (PHP_SAPI != 'cli') {
-			if(Yii::app()->mehpas_buffer->getBuffering()) {
+			if (Yii::app()->mehpas_buffer->getBuffering()) {
 				Yii::app()->mehpas_buffer->addGp($gp);
 				return;
 			}
 		}
-		
+
 		// Check if stale
 		$assignment = PasAssignment::model()->findByInternal('Gp', $gp->id);
-		if($assignment && $assignment->isStale()) {
+		if ($assignment && $assignment->isStale()) {
 
 			// Assignment is stale (and locked ready for update)
 			Yii::log('GP details stale', 'trace');
@@ -96,7 +98,7 @@ class PasObserver {
 				$assignment->unlock();
 			}
 
-		} else if(!$assignment) {
+		} elseif (!$assignment) {
 
 			// Error, missing assignment
 			Yii::log("Cannot find Gp assignment|id: {$gp->id}, obj_prof: {$gp->obj_prof}", 'warning', 'application.action');
@@ -115,21 +117,22 @@ class PasObserver {
 	 * Update Practice from PAS
 	 * @param array $params
 	 */
-	public function updatePracticeFromPas($params) {
+	public function updatePracticeFromPas($params)
+	{
 		$practice = $params['practice'];
 
 		// Check to see if we are buffering updates
 		if (PHP_SAPI != 'cli') {
-			if(Yii::app()->mehpas_buffer->getBuffering()) {
+			if (Yii::app()->mehpas_buffer->getBuffering()) {
 				Yii::app()->mehpas_buffer->addPractice($practice);
 				return;
 			}
 		}
-		
+
 		// Check if stale
 		$assignment = PasAssignment::model()->findByInternal('Practice', $practice->id);
-		if($assignment && $assignment->isStale()) {
-				
+		if ($assignment && $assignment->isStale()) {
+
 			// Assignment is stale (and locked ready for update)
 			Yii::log('Practice details stale', 'trace');
 			$pas_service = new PasService();
@@ -139,8 +142,8 @@ class PasObserver {
 				$pas_service->flashPasDown();
 				$assignment->unlock();
 			}
-		} else if(!$assignment) {
-				
+		} elseif (!$assignment) {
+
 			// Error, missing assignment
 			Yii::log("Cannot find Practice assignment|id: {$practice->id}, code: {$practice->code}", 'warning', 'application.action');
 			if (get_class(Yii::app()) == 'CConsoleApplication') {
@@ -156,9 +159,10 @@ class PasObserver {
 	 * Search PAS for patient
 	 * @param array $params
 	 */
-	public function searchPas($params) {
+	public function searchPas($params)
+	{
 		$pas_service = new PasService();
-		if($pas_service->isAvailable()) {
+		if ($pas_service->isAvailable()) {
 			$data = $params['params'];
 			if ($params['patient']->hos_num) {
 				$data['hos_num'] = $params['patient']->hos_num;
@@ -176,21 +180,23 @@ class PasObserver {
 	 * @param unknown_type $params
 	 * @todo This method is currently disabled until the referral code is fixed
 	 */
-	public function fetchReferralFromPas($params) {
+	public function fetchReferralFromPas($params)
+	{
 		return false;
 		$pas_service = new PasService();
-		if($pas_service->available) {
+		if ($pas_service->available) {
 			$pas_service->fetchReferral($params['episode']);
 		} else {
 			$pas_service->flashPasDown();
 		}
 	}
-	
+
 	/**
 	 * Start buffering PAS events so they can be processed as a batch job
 	 * which should hopefully be more efficient
 	 */
-	public function bufferUpdates() {
+	public function bufferUpdates()
+	{
 		Yii::log('Starting PAS buffer','trace');
 		Yii::app()->mehpas_buffer->setBuffering(true);
 	}
@@ -199,7 +205,8 @@ class PasObserver {
 	 * Process buffered PAS events
 	 * @todo Currently this does nothing, emulating previous "no_pas" mode. We may want to improve on this in the future.
 	 */
-	public function processBuffer() {
+	public function processBuffer()
+	{
 		Yii::log('Processing PAS buffer','trace');
 		Yii::app()->mehpas_buffer->setBuffering(false);
 		/*

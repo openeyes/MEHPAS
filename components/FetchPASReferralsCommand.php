@@ -18,17 +18,20 @@
  * @todo This command is currently disabled until the referral code is fixed
  */
 
-class FetchPASReferralsCommand extends CConsoleCommand {
-
-	public function getName() {
+class FetchPASReferralsCommand extends CConsoleCommand
+{
+	public function getName()
+	{
 		return 'FetchPASReferrals';
 	}
 
-	public function getHelp() {
+	public function getHelp()
+	{
 		return "Fetches the latest referrals from PAS and puts them in the OpenEyes DB.\n";
 	}
 
-	public function run($args) {
+	public function run($args)
+	{
 		echo "Disabled until the referral code is fixed";
 		return false;
 		$pas_service = new PasService();

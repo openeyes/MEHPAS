@@ -40,41 +40,46 @@
  * @property string $DATE_END
  * @property string $HDDR_GROUP
  */
-class PAS_PatientAddress extends MultiActiveRecord {
-
+class PAS_PatientAddress extends MultiActiveRecord
+{
 	/**
 	 * Returns the static model of the specified AR class.
 	 * @return PAS_PatientAddress the static model class
 	 */
-	public static function model($className=__CLASS__) {
+	public static function model($className=__CLASS__)
+	{
 		return parent::model($className);
 	}
 
 	/**
 	 * @return string the associated db connection name
 	 */
-	public function connectionId() {
+	public function connectionId()
+	{
 		return 'db_pas';
 	}
 
 	/**
 	 * @return string the associated database table name
 	 */
-	public function tableName() {
+	public function tableName()
+	{
 		return 'SILVER.PATIENT_ADDRS';
 	}
 
 	/**
 	 * @return array primary key for the table
 	 */
-	public function primaryKey() {
+	public function primaryKey()
+	{
 		return array('RM_PATIENT_NO','ADDR_TYPE','DATE_START');
 	}
 
 	/**
 	 * @return array validation rules for model attributes.
 	 */
-	public function rules() {
+	public function rules()
+	{
 		return array(
 				array('RM_PATIENT_NO', 'numerical', 'integerOnly' => true),
 				array('ADDR_TYPE', 'length', 'max' => 1),
@@ -91,7 +96,8 @@ class PAS_PatientAddress extends MultiActiveRecord {
 	/**
 	 * @return array relational rules.
 	 */
-	public function relations() {
+	public function relations()
+	{
 		return array(
 				'patient' => array(self::BELONGS_TO, 'PAS_Patient', 'RM_PATIENT_NO')
 		);
@@ -100,7 +106,8 @@ class PAS_PatientAddress extends MultiActiveRecord {
 	/**
 	 * @return array customized attribute labels (name => label)
 	 */
-	public function attributeLabels() {
+	public function attributeLabels()
+	{
 		return array(
 				'RM_PATIENT_NO' => 'Rm Patient No',
 				'ADDR_TYPE' => 'Addr Type',
@@ -127,7 +134,8 @@ class PAS_PatientAddress extends MultiActiveRecord {
 	 * Retrieves a list of models based on the current search/filter conditions.
 	 * @return CActiveDataProvider the data provider that can return the models based on the search/filter conditions.
 	 */
-	public function search() {
+	public function search()
+	{
 		$criteria=new CDbCriteria;
 
 		$criteria->compare('RM_PATIENT_NO',$this->RM_PATIENT_NO);

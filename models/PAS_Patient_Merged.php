@@ -96,7 +96,8 @@ class PAS_Patient_Merged extends BaseActiveRecord
 		));
 	}
 
-	public function resolveMerged() {
+	public function resolveMerged()
+	{
 		$mps = new MergedPatientService;
 
 		$mps->resolveMerged(array(

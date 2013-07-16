@@ -18,17 +18,20 @@
  * @todo This command is currently disabled until the referral code is fixed
  */
 
-class PopulatePasAssignmentCommand extends CConsoleCommand {
-
-	public function getName() {
+class PopulatePasAssignmentCommand extends CConsoleCommand
+{
+	public function getName()
+	{
 		return 'PopulatePasAssignment';
 	}
 
-	public function getHelp() {
+	public function getHelp()
+	{
 		return "Adds an assignment record for every patient currently in OpenEyes\n";
 	}
 
-	public function run($args) {
+	public function run($args)
+	{
 		$pas_service = new PasService();
 		if ($pas_service->isAvailable()) {
 			$this->populatePatientPasAssignment();
@@ -40,8 +43,8 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 		}
 	}
 
-	protected function populateGpPasAssignment() {
-
+	protected function populateGpPasAssignment()
+	{
 		// Find all gps that don't have an assignment
 		$gps = Yii::app()->db->createCommand()
 		->select('gp.id, gp.obj_prof')
@@ -61,7 +64,7 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 				'conflicted' => 0,
 		);
 
-		foreach($gps as $gp) {
+		foreach ($gps as $gp) {
 
 			$obj_prof = $gp['obj_prof'];
 			$gp_id = $gp['id'];
@@ -72,7 +75,7 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 			->from('patient')
 			->where('gp_id = :gp_id', array(':gp_id' => $gp_id))
 			->queryScalar();
-			if(!$patient) {
+			if (!$patient) {
 				// GP is not being used, let's delete it!
 				echo "Deleting unused GP (obj_prof $obj_prof, id $gp_id)\n";
 				$results['removed']++;
@@ -86,10 +89,10 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 			->from('gp')
 			->where('obj_prof = :obj_prof AND id != :gp_id', array(':obj_prof' => $obj_prof, ':gp_id' => $gp_id))
 			->queryColumn();
-			if(count($duplicate_gps)) {
+			if (count($duplicate_gps)) {
 				echo "There are one or more other GPs with obj_prof $obj_prof, attempting to merge\n";
 				$merged = 0;
-				foreach($duplicate_gps as $duplicate_gp_id) {
+				foreach ($duplicate_gps as $duplicate_gp_id) {
 					$gp_patients = Yii::app()->db->createCommand()
 					->update('patient', array('gp_id' => $gp_id), 'gp_id = :duplicate_gp_id', array(':duplicate_gp_id' => $duplicate_gp_id));
 					$results['duplicates']++;
@@ -98,7 +101,7 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 				}
 				echo "Removed ".count($duplicate_gps)." duplicate GP(s) and merged their patients\n";
 			}
-				
+
 			// Find a matching gp
 			$pas_gps = PAS_Gp::model()->findAll(array(
 					'condition' => 'OBJ_PROF = :obj_prof AND (DATE_TO IS NULL OR DATE_TO >= SYSDATE) AND (DATE_FR IS NULL OR DATE_FR <= SYSDATE)',
@@ -108,7 +111,7 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 					),
 			));
 
-			if(count($pas_gps) > 0) {
+			if (count($pas_gps) > 0) {
 				// Found a match
 				Yii::log("Found match in PAS for obj_prof $obj_prof, creating assignment", 'trace');
 
@@ -142,14 +145,14 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 			} else {
 				// GP is not in PAS, let's remove GP and update associated patients
 				$gp_patients = Patient::model()->findAllByAttributes(array('gp_id' => $gp_id));
-				foreach($gp_patients as $patient) {
-					if($patient->gp_id == $gp_id) {
+				foreach ($gp_patients as $patient) {
+					if ($patient->gp_id == $gp_id) {
 						$patient->gp_id = null;
 						$patient->save();
 					}
 				}
 				echo "Deleting invalid GP\n";
-				if($assignment = PasAssignment::model()->find('internal_id=? and internal_type=?',array($gp_id,'Gp'))) {
+				if ($assignment = PasAssignment::model()->find('internal_id=? and internal_type=?',array($gp_id,'Gp'))) {
 					$assignment->delete();
 				}
 				Gp::model()->deleteByPk($gp_id);
@@ -167,8 +170,8 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 		echo "Done.\n";
 	}
 
-	protected function populatePatientPasAssignment() {
-
+	protected function populatePatientPasAssignment()
+	{
 		// Find all patients that don't have an assignment
 		$patients = Yii::app()->db->createCommand()
 		->select('patient.id, patient.hos_num')
@@ -185,7 +188,7 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 				'duplicates' => 0,
 				'skipped' => 0,
 		);
-		foreach($patients as $patient) {
+		foreach ($patients as $patient) {
 
 			// Find rm_patient_no
 			$hos_num = sprintf('%07d',$patient['hos_num']);
@@ -196,14 +199,14 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 					':number_id' => $number_id,
 			));
 
-			if(count($patient_no) == 1) {
+			if (count($patient_no) == 1) {
 				// Found a single match
 				Yii::log("Found match in PAS for hos_num $hos_num, creating assignment", 'trace');
 				if ($assignment = PasAssignment::model()->find('internal_type=? and internal_id=?',array('Patient',$patient['id']))) {
 					if ($assignment->external_type != 'PAS_Patient' || $assignment->external_id != $patient_no[0]->RM_PATIENT_NO) {
 						throw new CException("Conflicting pas_assignment for internal_type=Patient internal_id={$patient['id']}: wanted to insert external_type=PAS_Patient external_id={$patient_no[0]->RM_PATIENT_NO} but already have external_type=PAS_Patient external_id={$assignment->external_id}");
 					}
-				} else if ($assignment = PasAssignment::model()->find('external_type=? and external_id=?',array('PAS_Patient',$patient_no[0]->RM_PATIENT_NO))) {
+				} elseif ($assignment = PasAssignment::model()->find('external_type=? and external_id=?',array('PAS_Patient',$patient_no[0]->RM_PATIENT_NO))) {
 					if ($assignment->internal_type != 'Patient' || $assignment->internal_id != $patient['id']) {
 						throw new CException("Conflicting pas_assignment for external_type=PAS_Patient external_id={$patient_no[0]->RM_PATIENT_NO}: wanted to insert internal_type=Patient internal_id={$patient['id']} but already have internal_type=Patient internal_id={$assignment->internal_id}");
 					}
@@ -216,7 +219,7 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 					$assignment->save();
 					$results['updated']++;
 				}
-			} else if(count($patient_no) > 1) {
+			} elseif (count($patient_no) > 1) {
 				// Found more than one match
 				echo "Found more than one match in PAS for hos_num $hos_num, cannot create assignment\n";
 				$results['skipped']++;
@@ -234,8 +237,8 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 		echo "Done.\n";
 	}
 
-	protected function populatePracticePasAssignment() {
-
+	protected function populatePracticePasAssignment()
+	{
 		// Find all practices that don't have an assignment
 		$practices = Yii::app()->db->createCommand()
 		->select('practice.id, practice.code')
@@ -255,7 +258,7 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 				'conflicted' => 0,
 		);
 
-		foreach($practices as $practice) {
+		foreach ($practices as $practice) {
 
 			$code = $practice['code'];
 			$practice_id = $practice['id'];
@@ -266,7 +269,7 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 			->from('patient')
 			->where('practice_id = :practice_id', array(':practice_id' => $practice_id))
 			->queryScalar();
-			if(!$patient) {
+			if (!$patient) {
 				// Practice is not being used, let's delete it!
 				echo "Deleting unused practice (code $code, id $practice_id)\n";
 				$results['removed']++;
@@ -280,10 +283,10 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 			->from('practice')
 			->where('code = :code AND id != :practice_id', array(':code' => $code, ':practice_id' => $practice_id))
 			->queryColumn();
-			if(count($duplicate_practices)) {
+			if (count($duplicate_practices)) {
 				echo "There are one or more other practices with code $code, attempting to merge\n";
 				$merged = 0;
-				foreach($duplicate_practices as $duplicate_practice_id) {
+				foreach ($duplicate_practices as $duplicate_practice_id) {
 					$practice_patients = Yii::app()->db->createCommand()
 					->update('patient', array('practice_id' => $practice_id), 'practice_id = :duplicate_practice_id', array(':duplicate_practice_id' => $duplicate_practice_id));
 					$results['duplicates']++;
@@ -292,7 +295,7 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 				}
 				echo "Removed ".count($duplicate_practices)." duplicate practice(s) and merged their patients\n";
 			}
-				
+
 			// Find a matching practice
 			$pas_practices = PAS_Practice::model()->findAll(array(
 					'condition' => 'OBJ_LOC = :code AND (DATE_TO IS NULL OR DATE_TO >= SYSDATE) AND (DATE_FR IS NULL OR DATE_FR <= SYSDATE)',
@@ -302,7 +305,7 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 					),
 			));
 
-			if(count($pas_practices) > 0) {
+			if (count($pas_practices) > 0) {
 				// Found a match
 				Yii::log("Found match in PAS for code $code, creating assignment", 'trace');
 
@@ -336,14 +339,14 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 			} else {
                                 // Practice is not in PAS, let's remove Practice and update associated patients
                                 $practice_patients = Patient::model()->findAllByAttributes(array('practice_id' => $practice_id));
-                                foreach($practice_patients as $patient) {
-                                        if($patient->practice_id == $practice_id) {
+                                foreach ($practice_patients as $patient) {
+                                        if ($patient->practice_id == $practice_id) {
                                                 $patient->practice_id = null;
                                                 $patient->save();
                                         }
                                 }
                                 echo "Deleting invalid Practice\n";
-                                if($assignment = PasAssignment::model()->find('internal_id=? and internal_type=?',array($practice_id,'Practice'))) {
+                                if ($assignment = PasAssignment::model()->find('internal_id=? and internal_type=?',array($practice_id,'Practice'))) {
                                         $assignment->delete();
                                 }
                                 Practice::model()->deleteByPk($practice_id);
@@ -360,5 +363,5 @@ class PopulatePasAssignmentCommand extends CConsoleCommand {
 		echo " - Skipped: ".$results['skipped']."\n";
 		echo "Done.\n";
 	}
-	
+
 }

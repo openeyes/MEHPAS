@@ -14,7 +14,7 @@
 					<div class="sortable">
 						<?php
 						foreach ($patients as $i => $merged) {?>
-							<li class="<?php if ($i%2 == 0) {?>even<?php }else{?>odd<?php }?>" data-attr-id="<?php echo $merged->id?>">
+							<li class="<?php if ($i%2 == 0) {?>even<?php } else {?>odd<?php }?>" data-attr-id="<?php echo $merged->id?>">
 								<span class="column_id"><input class="mergedPatient" type="checkbox" value="<?php echo $merged->id?>" /></span>
 								<span class="column_oe"><?php echo $merged->patient->hos_num?> <?php echo $merged->patient->first_name?> <?php echo $merged->patient->last_name?></span>
 								<span class="column_pas"><?php echo $merged->new_hos_num?> <?php echo $merged->new_first_name?> <?php echo $merged->new_last_name?></span>

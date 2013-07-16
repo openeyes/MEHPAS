@@ -35,8 +35,8 @@
  * @property Patient $patient
  * @property PAS_Patient $pas_patient
  */
-class PasAssignment extends BaseActiveRecord {
-
+class PasAssignment extends BaseActiveRecord
+{
 	/**
 	 * Default time (in seconds) before cached PAS details are considered stale
 	 */
@@ -52,21 +52,24 @@ class PasAssignment extends BaseActiveRecord {
 	 * Returns the static model of the specified AR class.
 	 * @return Phrase the static model class
 	 */
-	public static function model($className=__CLASS__) {
+	public static function model($className=__CLASS__)
+	{
 		return parent::model($className);
 	}
 
 	/**
 	 * @return string the associated database table name
 	 */
-	public function tableName() {
+	public function tableName()
+	{
 		return 'pas_assignment';
 	}
 
 	/**
 	 * @return array validation rules for model attributes.
 	 */
-	public function rules() {
+	public function rules()
+	{
 		return array(
 				array('external_id, external_type, internal_id, internal_type', 'required'),
 				array('id, external_id, external_type internal_id, internal_type, created_date, last_modified_date, created_user_id, last_modified_user_id', 'safe', 'on'=>'search'),
@@ -77,7 +80,8 @@ class PasAssignment extends BaseActiveRecord {
 	 * Get associated internal record
 	 * @return CActiveRecord
 	 */
-	public function getInternal() {
+	public function getInternal()
+	{
 		return self::model($this->internal_type)->findByPk($this->internal_id);
 	}
 
@@ -85,14 +89,16 @@ class PasAssignment extends BaseActiveRecord {
 	 * Get associated external record
 	 * @return CActiveRecord
 	 */
-	public function getExternal() {
+	public function getExternal()
+	{
 		return self::model($this->external_type)->findByExternalId($this->external_id);
 	}
 
 	/**
 	 * @return array customized attribute labels (name=>label)
 	 */
-	public function attributeLabels() {
+	public function attributeLabels()
+	{
 		return array();
 	}
 
@@ -100,7 +106,8 @@ class PasAssignment extends BaseActiveRecord {
 	 * Retrieves a list of models based on the current search/filter conditions.
 	 * @return CActiveDataProvider the data provider that can return the models based on the search/filter conditions.
 	 */
-	public function search() {
+	public function search()
+	{
 		$criteria=new CDbCriteria;
 
 		$criteria->compare('id',$this->id,true);
@@ -123,7 +130,8 @@ class PasAssignment extends BaseActiveRecord {
 	 * @param string $internal_type
 	 * @param integer $internal_id
 	 */
-	public function findByInternal($internal_type, $internal_id) {
+	public function findByInternal($internal_type, $internal_id)
+	{
 		//Yii::log("findByInternal: internal_id: $internal_id, internal_type: $internal_type", 'trace');
 		return $this->findAndLockIfStale('internal_id = :internal_id AND internal_type = :internal_type', array(':internal_id' => (int) $internal_id, ':internal_type' => $internal_type));
 	}
@@ -133,7 +141,8 @@ class PasAssignment extends BaseActiveRecord {
 	 * @param string $external_type
 	 * @param string $external_id
 	 */
-	public function findByExternal($external_type, $external_id) {
+	public function findByExternal($external_type, $external_id)
+	{
 		//Yii::log("findByExternal: external_id: $external_id, external_type: $external_type", 'trace');
 		return $this->findAndLockIfStale('external_id = :external_id AND external_type = :external_type', array(':external_id' => (int) $external_id, ':external_type' => $external_type));
 	}
@@ -142,19 +151,22 @@ class PasAssignment extends BaseActiveRecord {
 	 * Does this assignment need refreshing from PAS?
 	 * @return boolean
 	 */
-	public function isStale() {
+	public function isStale()
+	{
 		return isset($this->real_last_modified);
 	}
 
-	public function unlock() {
-		if(!$this->real_last_modified) {
+	public function unlock()
+	{
+		if (!$this->real_last_modified) {
 			throw new Exception('original last modified timestamp not stored, so assignment can\'t be unlocked');
 		}
 		$this->last_modified_date = $this->real_last_modified;
 		$this->save(true, null, true);
 	}
 
-	protected function findAndLockIfStale($condition, $params) {
+	protected function findAndLockIfStale($condition, $params)
+	{
 		//Yii::log("PasAssignment::findAndLockIfStale()", 'trace');
 		$connection = $this->getDbConnection();
 
@@ -174,7 +186,7 @@ class PasAssignment extends BaseActiveRecord {
 
 		// Check to see if modified date is in the future
 		//Yii::log("Checking to see if row is datelocked", 'trace');
-		while(strtotime($modified) > time()) {
+		while (strtotime($modified) > time()) {
 			// It is, which indicates that the assignment is locked, keep checking until we can get an exclusive lock
 			Yii::log("Assignment is datelocked, try again in 1 second...: id: $id, modified: $modified, internal_type: $internal_type", "trace");
 			//Yii::log("Releasing row lock", 'trace');
@@ -188,14 +200,14 @@ class PasAssignment extends BaseActiveRecord {
 			$modified = $record['last_modified_date'];
 		}
 		//Yii::log("Row not datelocked", 'trace');
-			
-		if($modified) {
+
+		if ($modified) {
 			// Found assignment
 			$cache_time = (isset(Yii::app()->params['mehpas_cache_time'])) ? Yii::app()->params['mehpas_cache_time'] : self::PAS_CACHE_TIME;
 			$stale = false;
 
 			// Check to see if assignment is stale
-			if(strtotime($modified) < (time() - $cache_time)) {
+			if (strtotime($modified) < (time() - $cache_time)) {
 				// It is, so update timestamp to 30 seconds in future to signal to other processes that record is locked
 				Yii::log("Datelocking assignment: id: $id, internal_type: $internal_type", 'trace');
 				$connection->createCommand()->update($this->tableName(), array('last_modified_date' => date("Y-m-d H:i:s", time() + 30)), $condition, $params);
@@ -203,7 +215,7 @@ class PasAssignment extends BaseActiveRecord {
 			}
 
 			$assignment = $this->find($condition,$params);
-			if($stale) {
+			if ($stale) {
 				$assignment->real_last_modified = $modified;
 			}
 		} else {
@@ -218,8 +230,9 @@ class PasAssignment extends BaseActiveRecord {
 		return $assignment;
 	}
 
-	public function save($runValidation = true, $attributes = null, $allow_overriding = false) {
-		if(!$allow_overriding || strtotime($this->last_modified_date <= time())) {
+	public function save($runValidation = true, $attributes = null, $allow_overriding = false)
+	{
+		if (!$allow_overriding || strtotime($this->last_modified_date <= time())) {
 			Yii::log("Removing assignment datelock: id: {$this->id}, internal_type, {$this->internal_type}", 'trace');
 		}
 		return parent::save($runValidation, $attributes, $allow_overriding);

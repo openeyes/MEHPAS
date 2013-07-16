@@ -18,8 +18,10 @@
  * @todo This command is currently disabled until the referral code is fixed
  */
 
-class MergedPatientsCommand extends CConsoleCommand {
-	public function run($args) {
+class MergedPatientsCommand extends CConsoleCommand
+{
+	public function run($args)
+	{
 		$mps = new MergedPatientService;
 
 		echo "Scanning patient table for broken assignments ... ";
