@@ -650,7 +650,7 @@ class PasService
 						if(!$ccg_assignment = CommissioningBodyPatientAssignment::model()
 							->find('commissioningbody_id = :commissioningbody_id AND patient_id = :patient_id',
 								array(':commissioningbody_id' => $commissioningbody->id, ':patient_id' => $patient->id))) {
-							$ccg_assignment = new CommissioningBodyPracticeAssignment;
+							$ccg_assignment = new CommissioningBodyPatientAssignment;
 							$ccg_assignment->patient_id = $patient->id;
 							$ccg_assignment->commissioningbody_id = $commissioningbody->id;
 							$ccg_assignment->save();
@@ -661,7 +661,7 @@ class PasService
 				// Remove any other CCG assignments
 				$criteria = new CDbCriteria();
 				$criteria->condition = 'patient_id = :patient_id AND commissioningbody_type.shortname = :commissioningbody_type';
-				$criteria->params = array(':practice_id' => $practice->id, ':commissioningbody_type' => 'CCG');
+				$criteria->params = array(':patient_id' => $patient->id, ':commissioningbody_type' => 'CCG');
 				$criteria->join = 'JOIN commissioningbody ON commissioningbody.id = t.commissioningbody_id JOIN commissioningbody_type ON commissioningbody_type.id = commissioningbody.commissioningbody_type_id';
 				if($commissioningbody) {
 					$criteria->condition .= ' AND commissioningbody_id != :id';
