@@ -638,6 +638,36 @@ class PasService
 
 				}
 
+				// CCG assignment
+				if($pas_patient->address && $ha_code = $pas_patient->address->HA_CODE) {
+					if($commissioningbody = $this->updateCcgFromPas($ha_code)) {
+						if(!$ccg_assignment = CommissioningBodyPatientAssignment::model()
+							->find('commissioningbody_id = :commissioningbody_id AND patient_id = :patient_id',
+								array(':commissioningbody_id' => $commissioningbody->id, ':patient_id' => $patient->id))) {
+							$ccg_assignment = new CommissioningBodyPracticeAssignment;
+							$ccg_assignment->patient_id = $patient->id;
+							$ccg_assignment->commissioningbody_id = $commissioningbody->id;
+							$ccg_assignment->save();
+						}
+					}
+
+					// Remove any other CCG assignments
+					$criteria = new CDbCriteria();
+					$criteria->condition = 'patient_id = :patient_id AND commissioningbody_type.shortname = :commissioningbody_type';
+					$criteria->params = array(':practice_id' => $practice->id, ':commissioningbody_type' => 'CCG');
+					$criteria->join = 'JOIN commissioningbody ON commissioningbody.id = t.commissioningbody_id JOIN commissioningbody_type ON commissioningbody_type.id = commissioningbody.commissioningbody_type_id';
+					if($commissioningbody) {
+						$criteria->condition .= ' AND commissioningbody_id != :id';
+						$criteria->params[':id'] = $commissioningbody->id;
+					}
+					$other_ccgs = array();
+					foreach(CommissioningBodyPatientAssignment::model()->findAll($criteria) as $other_ccg) {
+						$other_ccgs[] = $other_ccg->id;
+					}
+					CommissioningBodyPatientAssignment::model()->deleteByPk($other_ccgs);
+				}
+
+
 			} else {
 				Yii::log('Patient not found in PAS', 'trace');
 			}
