@@ -187,6 +187,85 @@ class PasService
 	}
 
 	/**
+	 * Update CCG CommissioningBody from PAS
+	 * @param string $code
+	 * @return CommissioningBody
+	 */
+	public function updateCcgFromPas($code)
+	{
+
+		// There must be a CommissioningBodyType for CCG
+		if(!$ccg_type = CommissioningBodyType::model()->find('shortname = ?', array('CCG'))) {
+			throw new CException('Cannot find CommissioningBodyType');
+		}
+
+		// Get the CCG data from PAS
+		if(!$pas_ccg = PAS_CCG::model()->findByExternalId($code)) {
+			throw new CException('Cannot find PAS_CCG');
+		}
+
+		// Commissioning body
+		if (!$commissioning_body = CommissioningBody::model()->find('commissioningbody_type_id = :type_id AND
+					code = :code'), array(':type_id' => $ccg_type->id, ':code' => $code)) {
+			$commissioning_body = new CommissioningBody;
+			$commissioning_body->commissioningbody_type_id = $ccg_type->id;
+			$commissioning_body->code = $pas_practice->OWN_OBJ;
+		}
+		$commissioning_body->name = $pas_ccg->OBJ_DESC;
+
+		// Contact
+		if (!$contact = $commissioning_body->contact) {
+			$contact = new Contact;
+		}
+		if (!$contact->save()) {
+			throw new CException("Unable to save CommissioningBody contact: ".print_r($contact->getErrors(),true));
+		}
+		$commissioning_body->contact_id = $contact->id;
+
+		// Address
+		$address1 = array();
+		if ($pas_ccg->ADD_NAM) {
+			$address1[] = $this->fixCase(trim($pas_ccg->ADD_NAM));
+		}
+		$address1[] = $this->fixCase(trim($pas_ccg->ADD_NUM . ' ' . $pas_ccg->ADD_ST));
+		$address1 = implode("\n",$address1);
+		$address2 = $this->fixCase($pas_ccg->ADD_DIS);
+		$city = $this->fixCase($pas_ccg->ADD_TWN);
+		$postcode = strtoupper($pas_ccg->PC);
+		if (trim(implode('',array($address1, $address2, $city, $postcode)))) {
+			if (!$address = $contact->address) {
+				$address = new Address();
+				$address->parent_class = 'Contact';
+				$address->parent_id = $contact->id;
+			}
+			$address->address1 = $address1;
+			$address->address2 = $address2;
+			$address->city = $city;
+			$address->county = $this->fixCase($pas_ccg->ADD_CTY);
+			$address->postcode = $postcode;
+			$address->country_id = 1;
+			if (!$address->save()) {
+				throw new CException('Cannot save CommissioningBody address: '.print_r($address->getErrors(),true));
+			}
+		} else {
+			// Address doesn't look useful, so we'll delete it
+			if ($address = $commissioning_body->contact->address) {
+				$address->delete();
+				$address = null;
+			}
+			Yii::log("CommissioningBody has no address|id: {$commissioning_body->id}, code: {$commissioning_body->code}", 'warning', 'application.action');
+		}
+
+		// Save
+		if (!$commissioning_body->save()) {
+			throw new CException('Cannot save CommissioningBody: '.print_r($commissioning_body->getErrors(),true));
+		}
+
+		return $commissioning_body;
+
+	}
+
+	/**
 	 * Update Practice from PAS
 	 * @param Practice $practice
 	 */
@@ -211,14 +290,13 @@ class PasService
 					// Contact
 					if (!$contact = $practice->contact) {
 						$contact = new Contact;
-						$contact->parent_class = 'Practice';
-						$contact->parent_id = $practice->id;
 					}
 					$contact->primary_phone = $practice->phone;
 
 					if (!$contact->save()) {
 						throw new Exception("Unable to save practice contact: ".print_r($contact->getErrors(),true));
 					}
+					$practice->contact_id = $contact->id;
 
 					// Address
 					$address1 = array();
@@ -249,6 +327,26 @@ class PasService
 							$address = null;
 						}
 					}
+
+					// Update assigned CCG
+					$commissioning_body = $this->updateCcgFromPas($pas_practice->OWN_OBJ);
+					if(!$ccg_assignment = CommissioningBodyPracticeAssignment::model()
+						->find('commissioning_body_id = :commissioning_body_id AND practice_id = :practice_id',
+							array(':commissioning_body_id' => $commissioning_body->id, ':practice_id' => $practice->id))) {
+						$ccg_assignment = new CommissioningBodyPracticeAssignment;
+						$ccg_assignment->practice_id = $practice->id;
+						$ccg_assignment->commissioning_body_id = $commissioning_body->id;
+						$ccg_assignment->save();
+					}
+
+					// Remove any other CCG assignments
+					$criteria = new CDbCriteria();
+					$criteria->condition = 'practice_id = :practice_id AND commissioningbody_type.shortname = :commissioningbody_type
+						AND commissioning_body_id != :id';
+					$criteria->params = array(':practice_id' => $practice->id, ':commissioningbody_type' => 'CCG', ':id' => $commissioning_body->id);
+					$criteria->join = 'JOIN commissioningbody ON commissioningbody.id = t.commissioningbody_id
+						JOIN commissioningbody_type ON commissioningbody_type.id = commissioningbody.commissioningbody_type_id';
+					CommissioningBodyPracticeAssignment::model()->deleteAll($criteria);
 
 					// Save
 					if (!$practice->save()) {
