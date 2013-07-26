@@ -623,7 +623,7 @@ class PasService
 						}
 
 						$this->updateAddress($address, $pas_address);
-	 					if (!$address->save()) {
+						if (!$address->save()) {
 							throw new CException('Cannot save patient address: '.print_r($address->getErrors(),true));
 						}
 						$matched_address_ids[] = $address->id;
@@ -673,12 +673,105 @@ class PasService
 				}
 				CommissioningBodyPatientAssignment::model()->deleteByPk($other_ccgs);
 
+				$pas_referrals = PAS_Referral::model()->findAll('X_CN=?',array($pas_patient['RM_PATIENT_NO']));
+
+				if ($pas_referrals) {
+					foreach ($pas_referrals as $pasReferral) {
+						$this->updateReferralFromPAS($patient,$pasReferral);
+					}
+				}
 
 			} else {
 				Yii::log('Patient not found in PAS', 'trace');
 			}
 		} catch (CDbException $e) {
 			$this->handlePASException($e);
+		}
+	}
+
+	public function updateReferralFromPAS($patient,$pasReferral) {
+		if (!$referralType = ReferralType::model()->find('code=?',array($pasReferral['SRCE_REF']))) {
+			if (!$pasReferralType = PAS_ReferralType::model()->find('ULNKEY=? and code=?',array('SREF',$pasReferral['SRCE_REF']))) {
+				throw new Exception("PAS referral apparently created with a non-existant code: {$pasReferral['REFNO']} / {$pasReferral['SRCE_REF']}");
+			}
+			$referralType = new ReferralType;
+			$referralType->code = $pasReferral['SRCE_REF'];
+			$referralType->name = $pasReferralType['DESCRIPT'];
+
+			if (!$referralType->save()) {
+				throw new Exception("Unable to save referral_type: ".print_r($referralType->getErrors(),true));
+			}
+		}
+
+		if (!$ref_assignment = PasAssignment::model()->find('external_type=? and external_id=?',array('PAS_Referral',$pasReferral->REFNO))) {
+			$ref_assignment = new PasAssignment;
+			$ref_assignment->internal_type = 'Referral';
+			$ref_assignment->external_type = 'PAS_Referral';
+			$ref_assignment->external_id = $pasReferral->REFNO;
+
+			$referral = new Referral;
+			$referral->patient_id = $patient->id;
+			$referral->refno = $pasReferral->REFNO;
+		} elseif (!$referral = Referral::model()->findByPk($ref_assignment->internal_id)) {
+			throw new Exception("Broken pas_assignment id {$ref_assignment->id} references non-existant Referral {$ref_assignment->internal_id}");
+		}
+
+		$referral->referral_type_id = $referralType->id;
+		$referral->received_date = $pasReferral['DT_REC'];
+		$referral->closed_date = $pasReferral['DT_CLOSE'] ? $pasReferral['DT_CLOSE'] : null;
+		$referral->referrer = $pasReferral['REF_PERS'];
+
+		if ($referral->referrer) {
+			if (strlen($referral->referrer) == 4) {
+				$criteria = new CDbCriteria;
+
+				if ($subspecialty = Subspecialty::model()->with('serviceSubspecialtyAssignment')->find('ref_spec=?',array($pasReferral['REF_SPEC']))) {
+					$criteria->addCondition('service_subspecialty_assignment_id = :ssa_id');
+					$criteria->params[':ssa_id'] = $subspecialty->serviceSubspecialtyAssignment->id;
+
+					$referral->service_subspecialty_assignment_id = $subspecialty->serviceSubspecialtyAssignment->id;
+				}
+
+				$criteria->addCondition('pas_code = :pas_code');
+				$criteria->params[':pas_code'] = $referral->referrer;
+
+				$firm_ids = array();
+				foreach (Firm::model()->findAll($criteria) as $firm) {
+					$firm_ids[] = $firm->id;
+				}
+
+				if (count($firm_ids) == 1) {
+					$referral->firm_id = $firm_ids[0];
+				}
+			}
+
+			if (!$referral->firm_id) {
+				if (!$gp = Gp::model()->find('obj_prof=?',array($referral->referrer))) {
+					// See if this is a GP in PAS
+					if ($pas_gp = PAS_Gp::model()->find('obj_prof=?',array($referral->referrer))) {
+						$gp = new Gp;
+						$gp_assignment = new PasAssignment;
+						$gp_assignment->internal_type = 'Gp';
+						$gp_assignment->external_id = $pas_gp->OBJ_PROF;
+						$gp_assignment->external_type = 'PAS_Gp';
+						$gp = $this->updateGpFromPas($gp, $gp_assignment);
+						$referral->gp_id = $gp->id;
+					}
+				} else {
+					$referral->gp_id = $gp->id;
+				}
+			}
+		}
+
+		if (!$referral->save()) {
+			throw new Exception("Unable to save referral: ".print_r($referral->getErrors(),true));
+		}
+
+		if (!$ref_assignment->id) {
+			$ref_assignment->internal_id = $referral->id;
+			if (!$ref_assignment->save()) {
+				throw new Exception("Unable to save pas_assignment: ".print_r($ref_assignment->getErrors(),true));
+			}
 		}
 	}
 
