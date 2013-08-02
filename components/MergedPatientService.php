@@ -23,23 +23,54 @@ class MergedPatientService
 
 	public function findBrokenPatients()
 	{
-		$patients = Yii::app()->db->createCommand()
-		->select('patient.id, external_id, patient.pas_key, patient.hos_num, contact.first_name, contact.last_name')
-		->from('pas_assignment')
-		->join("patient","pas_assignment.internal_id = patient.id")
-		->join("contact","patient.contact_id = contact.id")
-		->where("pas_assignment.internal_type = 'Patient'")
-		->queryAll();
+		$external_ids = array();
+		$patients = array();
+		$batch = array();
+
+		foreach (Yii::app()->db->createCommand()
+			->select('patient.id, external_id, patient.pas_key, patient.hos_num, contact.first_name, contact.last_name')
+			->from('pas_assignment')
+			->join("patient","pas_assignment.internal_id = patient.id")
+			->join("contact","patient.contact_id = contact.id")
+			->where("pas_assignment.internal_type = 'Patient'")
+			->queryAll() as $row) {
+
+			$patients[] = $row;
+			$external_ids[] = $row['external_id'];
+
+			if (count($external_ids) >= 1000) {
+				$batch[] = $external_ids;
+				$external_ids = array();
+			}
+		}
+
+		if (!empty($external_ids)) {
+			$batch[] = $external_ids;
+		}
+
+		$external_id_count = array();
+
+		foreach ($batch as $external_ids) {
+			foreach (Yii::app()->db_pas->createCommand()
+				->select("RM_PATIENT_NO")
+				->from("SILVER.PATIENTS")
+				->where("RM_PATIENT_NO in (".implode(',',$external_ids).")")
+				->queryAll() as $row) {
+
+				if (!isset($external_id_count[$row['RM_PATIENT_NO']])) {
+					$external_id_count[$row['RM_PATIENT_NO']] = 1;
+				} else {
+					$external_id_count[$row['RM_PATIENT_NO']]++;
+				}
+			}
+		}
 
 		$results = array();
 
 		foreach ($patients as $patient) {
-			$rm_patient_no = $patient['external_id'];
-			$pas_patient = PAS_Patient::model()->findAll('rm_patient_no = :rm_patient_no', array(
-				':rm_patient_no' => $rm_patient_no,
-			));
+			$count = isset($external_id_count[$patient['external_id']]) ? $external_id_count[$patient['external_id']] : 0;
 
-			if (count($pas_patient) == 0) {
+			if ($count == 0) {
 				$map = $this->inferMergedPatient($patient['pas_key'],$patient['first_name'],$patient['last_name'],$patient['hos_num']);
 
 				if ($map['hos_num'] != $patient['hos_num']) {
@@ -125,12 +156,14 @@ class MergedPatientService
 			} else {
 				foreach ($patients as $patient) {
 					if ($patient->id != $theone->id) {
-						if (Episode::model()->find('patient_id=?',array($patient->id))) {
+						if (Episode::model()->disableDefaultScope()->find('patient_id=?',array($patient->id))) {
 							$this->migrateEpisodes($patient,$theone);
 							$this->log('migrated episodes');
 						}
 						$this->migratePatientAssignments($patient,$theone);
-						$this->deletePatient($patient);
+						if (!$patient->delete()) {
+							throw new Exception("Unable to delete patient: ".print_r($patient->getErrors(),true));
+						}
 						$this->log('old patient deleted');
 					}
 				}
@@ -148,24 +181,54 @@ class MergedPatientService
 	{
 		$this->lastMessage = '';
 
-		$_patient = Patient::model()->find('hos_num=?',array($patient['hos_num']));
+		if (!$_patient = Patient::model()->find('hos_num=?',array($patient['hos_num']))) {
+			throw new Exception("Patient not found with hos_num={$patient['hos_num']}");
+		}
 
 		if ($new_patient = Patient::model()->find('hos_num=?',array($patient['new_hos_num']))) {
 			if ($new_patient->id != $_patient->id) {
-				if (Episode::model()->find('patient_id=?',array($_patient->id))) {
+				if (Episode::model()->disableDefaultScope()->find('patient_id=?',array($_patient->id))) {
 					$this->migrateEpisodes($_patient,$new_patient);
 					$this->log('migrated episodes');
 				}
 				$this->migratePatientAssignments($_patient,$new_patient);
-				$this->deletePatient($_patient);
+
+				if ($ppm = PAS_Patient_Merged::model()->find('patient_id=?',array($_patient->id))) {
+					if (!$ppm->delete()) {
+						throw new Exception("Unable to remove pas_patient_merged: ".print_r($ppm->getErrors(),true));
+					}
+				}
+
+				if (!$_patient->delete()) {
+					throw new Exception("Unable to delete patient: ".print_r($_patient->getErrors(),true));
+				}
 				$this->log('old patient deleted');
 			} else {
 				$this->log('same patient');
 			}
 		} else {
-			Yii::app()->db->createCommand("update patient set hos_num = '{$patient['new_hos_num']}', pas_key = '{$patient['new_hos_num']}' where hos_num = '$_patient->hos_num'")->query();
-			Yii::app()->db->createCommand("update pas_assignment set external_id = '{$patient['new_rm_patient_no']}' where internal_type = 'Patient' and internal_id = $_patient->id")->query();
-			Yii::app()->db->createCommand("delete from pas_patient_merged where patient_id = {$_patient->id}")->query();
+			$_patient->hos_num = $patient['new_hos_num'];
+			$_patient->pas_key = $patient['new_hos_num'];
+
+			if (!$_patient->save(true,null,true)) {
+				throw new Exception("Unable to update patient: ".print_r($_patient->getErrors(),true));
+			}
+
+			if (!$pa = PasAssignment::model()->find('internal_type=? and internal_id=?',array('Patient',$_patient->id))) {
+				throw new Exception("pas_assignment not found for internal_type=Patient internal_id=$_patient->id");
+			}
+
+			$pa->external_id = $patient['new_rm_patient_no'];
+			if (!$pa->save(true,null,true)) {
+				throw new Exception("Unable to save pas_assignment: ".print_r($pa->getErrors(),true));
+			}
+
+			if ($ppm = PAS_Patient_Merged::model()->find('patient_id=?',array($_patient->id))) {
+				if (!$ppm->delete()) {
+					throw new Exception("Unable to remove pas_patient_merged: ".print_r($ppm->getErrors(),true));
+				}
+			}
+
 			$this->log('migrated patient');
 		}
 
@@ -191,43 +254,50 @@ class MergedPatientService
 		return true;
 	}
 
-	public function deletePatient($patient)
-	{
-		Yii::app()->db->createCommand("delete from audit where patient_id = $patient->id")->query();
-		Yii::app()->db->createCommand("delete from pas_patient_merged where patient_id = $patient->id")->query();
-		Yii::app()->db->createCommand("delete from patient where id = $patient->id")->query();
-		Yii::app()->db->createCommand("delete from pas_assignment where internal_type = 'Patient' and internal_id = $patient->id")->query();
-	}
-
 	public function migrateEpisodes($old_patient, $new_patient)
 	{
-		foreach (Episode::model()->findAll('patient_id=?',array($old_patient->id)) as $episode) {
+		foreach (Episode::model()->disableDefaultScope()->findAll('patient_id=?',array($old_patient->id)) as $episode) {
 			if ($new_episode = $this->findMatchingEpisode($episode, $new_patient)) {
-				$this->migrateEvents($episode, $new_episode);
-				Yii::app()->db->createCommand("delete from audit where episode_id = $episode->id")->query();
-				Yii::app()->db->createCommand("delete from episode where id = $episode->id")->query();
+				foreach (Event::model()->disableDefaultScope()->findAll('episode_id=?',array($episode->id)) as $event) {
+					$event->episode_id = $new_episode->id;
+					if (!$event->save(true,null,true)) {
+						throw new Exception("Unable to save event: ".print_r($event->getErrors(),true));
+					}
+				}
+
+				foreach (Audit::model()->findAll('episode_id=?',array($episode->id)) as $audit) {
+					$audit->episode_id = $new_episode->id;
+
+					if (!$audit->save(true,null,true)) {
+						throw new Exception("Unable to save audit: ".print_r($audit->getErrors(),true));
+					}
+				}
+
+				if (!$episode->delete()) {
+					throw new Exception("Unable to delete episode: ".print_r($episode->getErrors(),true));
+				}
 			} else {
-				$this->reassignEpisode($episode, $new_patient);
+				$episode->patient_id = $new_patient->id;
+
+				if (!$episode->save(true,null,true)) {
+					throw new Exception("Unable to save episode: ".print_r($episode->getErrors(),true));
+				}
+
+				foreach (Audit::model()->findAll('episode_id=?',array($episode->id)) as $audit) {
+					$audit->patient_id = $new_patient->id;
+
+					if (!$audit->save(true,null,true)) {
+						throw new Exception("Unable to save audit: ".print_r($audit->getErrors(),true));
+					}
+				}
 			}
 		}
-	}
-
-	public function migrateEvents($episode, $new_episode)
-	{
-		Yii::app()->db->createCommand("update event set episode_id = $new_episode->id where episode_id = $episode->id")->query();
-		Yii::app()->db->createCommand("update audit set episode_id = $new_episode->id where episode_id = $episode->id")->query();
-	}
-
-	public function reassignEpisode($episode, $new_patient)
-	{
-		Yii::app()->db->createCommand("update episode set patient_id = $new_patient->id where id = $episode->id")->query();
-		Yii::app()->db->createCommand("update audit set patient_id = $new_patient->id where episode_id = $episode->id")->query();
 	}
 
 	public function findMatchingEpisode($episode, $patient)
 	{
 		if ($episode->legacy) {
-			return Episode::model()->find('patient_id=? and legacy=?',array($patient->id,1));
+			return Episode::model()->disableDefaultScope()->find('patient_id=? and legacy=?',array($patient->id,1));
 		}
 		return $this->findEpisodeWithSSA($patient, $episode->firm->serviceSubspecialtyAssignment);
 	}
@@ -240,45 +310,192 @@ class MergedPatientService
 			$firm_ids[] = $firm->id;
 		}
 
-		return Episode::model()->find('patient_id=? and firm_id in ('.implode(',',$firm_ids).')',array($patient->id));
+		return Episode::model()->disableDefaultScope()->find('patient_id=? and firm_id in ('.implode(',',$firm_ids).')',array($patient->id));
 	}
 
 	public function migratePatientAssignments($patient,$new_patient)
 	{
 		foreach ($patient->contactAssignments as $ca) {
 			if (!PatientContactAssignment::model()->find('patient_id=? and location_id=?',array($new_patient->id,$ca->location_id))) {
-				Yii::app()->db->createCommand("insert into patient_contact_assignment (patient_id,location_id,last_modified_user_id,last_modified_date,created_user_id,created_date) values ($new_patient->id,$ca->location_id,$ca->last_modified_user_id,'$ca->last_modified_date',$ca->created_user_id,'$ca->created_date')")->query();
+				$_ca = BaseActiveRecord::cloneObject($ca,array('patient_id'=>$new_patient->id));
+
+				if (!$_ca->save(true,null,true)) {
+					throw new Exception("Failed to save patient contact assignment: ".print_r($_ca->getErrors(),true));
+				}
 			}
 
-			Yii::app()->db->createCommand("delete from patient_contact_assignment where id = $ca->id")->query();
+			if (!$ca->delete()) {
+				throw new Exception("Unable to delete patient contact assignment: ".print_r($ca->getErrors(),true));
+			}
 		}
 
 		foreach (PatientAllergyAssignment::model()->findAll('patient_id=?',array($patient->id)) as $paa) {
 			if (!PatientAllergyAssignment::model()->find('patient_id=? and allergy_id=?',array($new_patient->id,$paa->allergy_id))) {
-				Yii::app()->db->createCommand("insert into patient_allergy_assignment (patient_id,allergy_id,last_modified_user_id,last_modified_date,created_user_id,created_date) values ($new_patient->id,$paa->allergy_id,$paa->last_modified_user_id,'$paa->last_modified_date',$paa->created_user_id,'$paa->created_date')")->query();
+				$_paa = BaseActiveRecord::cloneObject($paa,array('patient_id'=>$new_patient->id));
+
+				if (!$_paa->save(true,null,true)) {
+					throw new Exception("Unable to save patient allergy assignment: ".print_r($_paa->getErrors(),true));
+				}
 			}
-			Yii::app()->db->createCommand("delete from patient_allergy_assignment where id = $paa->id")->query();
+
+			if (!$paa->delete()) {
+				throw new Exception("Unable to delete patient allergy assignment: ".print_r($paa->getErrors(),true));
+			}
 		}
 
 		foreach ($patient->previousOperations as $po) {
-			if (!PreviousOperation::model()->find('patient_id=? and side_id=? and operation=? and date=?',array($new_patient->id,$po->side_id,$po->operation,$po->date))) {
-				Yii::app()->db->createCommand("insert into previous_operation (patient_id,side_id,operation,date,last_modified_user_id,last_modified_date,created_user_id,created_date) values ($new_patient->id,$po->side_id,'".mysql_escape_string($po->operation)."','$po->date',$po->last_modified_user_id,'$po->last_modified_date',$po->created_user_id,'$po->created_date'")->query();
+			if (!PreviousOperation::model()->find($this->getCriteria(array(
+					'patient_id' => $new_patient->id,
+					'site_id' => $po->site_id,
+					'operation' => $po->operation,
+					'date' => $po->date,
+				)))) {
+				$_po = BaseActiveRecord::cloneObject($po,array('patient_id'=>$new_patient->id));
+
+				if (!$_po->save(true,null,true)) {
+					throw new Exception("Unable to save previous operation: ".print_r($_po->getErrors(),true));
+				}
 			}
-			Yii::app()->db->createCommand("delete from previous_operation where id = $po->id")->query();
+
+			if (!$po->delete()) {
+				throw new Exception("Unable to delete previous operation: ".print_r($po->getErrors(),true));
+			}
 		}
 
 		foreach ($patient->familyHistory as $fh) {
-			if (!FamilyHistory::model()->find('patient_id=? and relative_id=? and side_id=? and condition_id=? and comments=?',array($new_patient->id,$fh->relative_id,$fh->side_id,$fh->condition_id,$fh->comments))) {
-				Yii::app()->db->createCommand("insert into family_history (patient_id,relative_id,side_id,condition_id,comments,last_modified_user_id,last_modified_date,created_user_id,created_date) values ($new_patient->id,$fh->relative_id,$fh->side_id,$fh->condition_id,'".mysql_escape_string($fh->comments)."',$fh->last_modified_user_id,'$fh->last_modified_date',$fh->created_user_id,'$fh->created_date')")->query();
+			if (!FamilyHistory::model()->find($this->getCriteria(array(
+					'patient_id' => $new_patient->id,
+					'relative_id' => $fh->relative_id,
+					'side_id' => $fh->side_id,
+					'condition_id' => $fh->condition_id,
+					'comments' => $fh->comments,
+				)))) {
+				$_fh = BaseActiveRecord::cloneObject($fh,array('patient_id'=>$new_patient->id));
+
+				if (!$_fh->save(true,null,true)) {
+					throw new Exception("Unable to save family history: ".print_r($_fh->getErrors(),true));
+				}
 			}
-			Yii::app()->db->createCommand("delete from family_history where id = $fh->id")->query();
+
+			if (!$fh->delete()) {
+				throw new Exception("Unable to delete family history: ".print_r($fh->getErrors(),true));
+			}
 		}
 
 		foreach ($patient->medications as $m) {
-			if (!Medication::model()->find('patient_id=? and drug_id=? and route_id=? and option_id=? and frequency_id=? and start_date=? and end_date=?',array($new_patient->id,$m->drug_id,$m->route_id,$m->route_id,$m->option_id,$m->frequency_id,$m->start_date,$m->end_date))) {
-				Yii::app()->db->createCommand("insert into medication (patient_id,drug_id,route_id,option_id,frequency_id,start_date,end_date,last_modified_user_id,last_modified_date,created_user_id,created_date) values ($new_patient->id,$m->drug_id,$m->route_id,$m->option_id,$m->frequency_id,'$m->start_date','$m->end_date',$m->last_modified_user_id,'$m->last_modified_date',$m->created_user_id,'$m->created_date'")->query();
+			if (!Medication::model()->find($this->getCriteria(array(
+					'patient_id' => $new_patient->id,
+					'drug_id' => $m->drug_id,
+					'route_id' => $m->route_id,
+					'option_id' => $m->option_id,
+					'frequency_id' => $m->frequency_id,
+					'start_date' => $m->start_date,
+					'end_date' => $m->end_date,
+				)))) {
+				$_m = BaseActiveRecord::cloneObject($m,array('patient_id'=>$new_patient->id));
+
+				if (!$_m->save(true,null,true)) {
+					throw new Exception("Unable to save medication: ".print_r($_m->getErrors(),true));
+				}
 			}
-			Yii::app()->db->createCommand("delete from medication where id = $m->id")->query();
+
+			if (!$m->delete()) {
+				throw new Exception("Unable to delete medication: ".print_r($m->getErrors(),true));
+			}
 		}
+
+		foreach ($patient->secondarydiagnoses as $sd) {
+			if (!SecondaryDiagnosis::model()->find($this->getCriteria(array(
+					'patient_id' => $new_patient->id,
+					'disorder_id' => $sd->disorder_id,
+					'eye_id' => $sd->eye_id,
+					'date' => $sd->date,
+				)))) {
+				$_sd = BaseActiveRecord::cloneObject($sd,array('patient_id'=>$new_patient->id));
+
+				if (!$_sd->save(true,null,true)) {
+					throw new Exception("Unable to save secondary diagnosis: ".print_r($_sd->getErrors(),true));
+				}
+			}
+
+			if (!$sd->delete()) {
+				throw new Exception("Unable to delete secondary diagnosis: ".print_r($sd->getErrors(),true));
+			}
+		}
+
+		foreach (CommissioningBodyPatientAssignment::model()->findAll('patient_id=?',array($patient->id)) as $pa) {
+			if (!CommissioningBodyPatientAssignment::model()->find('patient_id=? and commissioning_body_id=?',array($new_patient->id,$pa->commissioning_body_id))) {
+				$_pa = BaseActiveRecord::cloneObject($pa,array('patient_id'=>$new_patient->id));
+
+				if (!$_pa->save(true,null,true)) {
+					throw new Exception("Unable to save commissioning body patient assignment: ".print_r($_pa->getErrors(),true));
+				}
+			}
+
+			if (!$pa->delete()) {
+				throw new Exception("Unable to delete commissioning body patient assignment: ".print_r($pa->getErrors(),true));
+			}
+		}
+
+		foreach (PatientOphInfo::model()->findAll('patient_id=?',array($patient->id)) as $oi) {
+			if (!PatientOphInfo::model()->find('patient_id=? and cvi_status_date=? and cvi_status_id=?',array($new_patient->id,$oi->cvi_status_date,$oi->cvi_status_id))) {
+				$_oi = BaseActiveRecord::cloneObject($oi,array('patient_id'=>$new_patient->id));
+
+				if (!$_oi->save(true,null,true)) {
+					throw new Exception("Unable to save patient oph info: ".print_r($_oi->getErrors(),true));
+				}
+			}
+
+			if (!$oi->delete()) {
+				throw new Exception("Unable to delete patient oph info: ".print_r($oi->getErrors(),true));
+			}
+		}
+
+		foreach ($patient->referrals as $referral) {
+			if (!Referral::model()->find($this->getCriteria(array(
+					'patient_id' => $new_patient->id,
+					'refno' => $referral->refno,
+					'referral_type_id' => $referral->referral_type_id,
+					'received_date' => $referral->received_date,
+					'closed_date' => $referral->closed_date,
+					'referrer' => $referral->referrer,
+					'firm_id' => $referral->firm_id,
+					'service_subspecialty_assignment_id' => $referral->service_subspecialty_assignment_id,
+					'gp_id' => $referral->gp_id,
+				)))) {
+				$_referral = BaseActiveRecord::cloneObject($referral,array('patient_id'=>$new_patient->id));
+
+				if (!$_referral->save(true,null,true)) {
+					throw new Exception("Unable to save referral: ".print_r($_referral->getErrors(),true));
+				}
+			}
+
+			if (!$referral->delete()) {
+				throw new Exception("Unable to delete referral: ".print_r($referral->getErrors(),true));
+			}
+		}
+
+		foreach (Audit::model()->findAll('patient_id=?',array($patient->id)) as $audit) {
+			$audit->patient_id = $new_patient->id;
+
+			if (!$audit->save(true,null,true)) {
+				throw new Exception("Unable to save audit: ".print_r($audit->getErrors(),true));
+			}
+		}
+	}
+
+	public function getCriteria($params) {
+		$criteria = new CDbCriteria;
+
+		foreach ($params as $key => $value) {
+			if ($value === null) {
+				$criteria->addCondition("$key is null");
+			} else {
+				$criteria->addCondition("$key = :$key");
+				$criteria->params[":$key"] = $value;
+			}
+		}
+
+		return $criteria;
 	}
 }

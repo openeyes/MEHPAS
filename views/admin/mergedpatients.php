@@ -47,7 +47,7 @@
 		$.ajax({
 			'type': 'POST',
 			'url': baseUrl+'/mehpas/admin/doMerge',
-			'data': $.param({id: ids}),
+			'data': $.param({id: ids})+"&YII_CSRF_TOKEN="+YII_CSRF_TOKEN,
 			'success': function(html) {
 				if (html == "1") {
 					window.location.reload();
