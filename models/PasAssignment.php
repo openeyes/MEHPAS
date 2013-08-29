@@ -43,6 +43,11 @@ class PasAssignment extends BaseActiveRecord
 	const PAS_CACHE_TIME = 300;
 
 	/**
+	 * Datelock time (in seconds)
+	 */
+	const LOCK_TIME = 60;
+
+	/**
 	 * Stores last_modified timestamp during assignment lock
 	 * @var string
 	 */
@@ -208,9 +213,9 @@ class PasAssignment extends BaseActiveRecord
 
 			// Check to see if assignment is stale
 			if (strtotime($modified) < (time() - $cache_time)) {
-				// It is, so update timestamp to 30 seconds in future to signal to other processes that record is locked
+				// It is, so update timestamp to a future date to signal to other processes that record is locked
 				Yii::log("Datelocking assignment: id: $id, internal_type: $internal_type", 'trace');
-				$connection->createCommand()->update($this->tableName(), array('last_modified_date' => date("Y-m-d H:i:s", time() + 30)), $condition, $params);
+				$connection->createCommand()->update($this->tableName(), array('last_modified_date' => date("Y-m-d H:i:s", time() + self::LOCK_TIME)), $condition, $params);
 				$stale = true;
 			}
 

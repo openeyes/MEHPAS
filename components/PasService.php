@@ -462,6 +462,11 @@ class PasService
 	{
 		if (!$this->isAvailable()) return;
 
+		/**
+		 * FIXME: In periods of heavy load, the date (soft) locking system will fail and allow duplicate records to be created.
+		 * We should introduce transactions to the code below so that this can be rolled back. Hopefully this module will
+		 * be replaced before that is necessary.
+		 */
 		try {
 			Yii::log("Pulling data from PAS for Patient: Patient->id: {$patient->id}, PasAssignment->id: {$assignment->id}, PasAssignment->external_id: {$assignment->external_id}", 'trace');
 			if (!$assignment->external_id) {
