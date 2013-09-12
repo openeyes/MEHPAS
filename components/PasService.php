@@ -686,6 +686,7 @@ class PasService
 				}
 				CommissioningBodyPatientAssignment::model()->deleteByPk($other_ccgs);
 
+				/* FIXME - Disabling due to errors and currently unused
 				$pas_referrals = PAS_Referral::model()->findAll('X_CN=?',array($pas_patient['RM_PATIENT_NO']));
 
 				if ($pas_referrals) {
@@ -693,6 +694,7 @@ class PasService
 						$this->updateReferralFromPAS($patient,$pasReferral);
 					}
 				}
+				*/
 
 			} else {
 				Yii::log('Patient not found in PAS', 'trace');
