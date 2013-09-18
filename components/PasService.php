@@ -1108,6 +1108,8 @@ class PasService
 
 			// Go through array looking for likely candidates for postcode, town/city and county
 			for ($index = 0; $index < count($addressLines); $index++) {
+				if (!isset($addressLines[$index])) continue;
+
 				// Is element a postcode? (Postcodes may exist in other address lines)
 				if ($postCodeArray = $postCodeUtility->parsePostCode($addressLines[$index])) {
 					if (!$postCodeFound) {
