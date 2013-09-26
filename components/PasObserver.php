@@ -60,7 +60,7 @@ class PasObserver
 			if (get_class(Yii::app()) == 'CConsoleApplication') {
 				echo "Warning: unable to update patient $patient->hos_num from PAS (merged patient)\n";
 			} else {
-				Yii::app()->getController()->render('/error/errorPAS');
+				Yii::app()->getController()->render('//error/errorPAS');
 				Yii::app()->end();
 			}
 
@@ -105,7 +105,7 @@ class PasObserver
 			if (get_class(Yii::app()) == 'CConsoleApplication') {
 				echo "Warning: unable to update gp $gp->obj_prof from PAS\n";
 			} else {
-				Yii::app()->getController()->render('/error/errorPAS');
+				Yii::app()->getController()->render('//error/errorPAS');
 				Yii::app()->end();
 			}
 
@@ -149,7 +149,7 @@ class PasObserver
 			if (get_class(Yii::app()) == 'CConsoleApplication') {
 				echo "Warning: unable to update practice $practice->code from PAS\n";
 			} else {
-				Yii::app()->getController()->render('/error/errorPAS');
+				Yii::app()->getController()->render('//error/errorPAS');
 				Yii::app()->end();
 			}
 		}
