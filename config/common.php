@@ -94,7 +94,7 @@ return array(
 		'mehpas_cache_time' => 300,
 		'mehpas_bad_gps' => array(),
 		'admin_menu' => array(
-			'Merged patients' => '/mehpas/admin/mergedPatients',
+			//'Merged patients' => '/mehpas/admin/mergedPatients',
 		),
 	),
 );
