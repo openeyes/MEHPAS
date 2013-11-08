@@ -29,6 +29,19 @@ class m130913_000013_consolidation_for_mehpas extends OEMigration
 
 	public function up()
 	{
+		if (!$this->consolidate(
+			array(
+				"m120327_154617_pas_assignment",
+				"m130521_101040_pas_patient_merged",
+			)
+		)
+		) {
+			$this->createTables();
+		}
+	}
+
+	public function createTables()
+	{
 		$this->setData();
 		//disable foreign keys check
 		$this->execute("SET foreign_key_checks = 0");
