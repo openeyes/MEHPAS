@@ -55,7 +55,7 @@ class PasAssignment extends BaseActiveRecord
 
 	/**
 	 * Returns the static model of the specified AR class.
-	 * @return Phrase the static model class
+	 * @return PasAssignment the static model class
 	 */
 	public static function model($className=__CLASS__)
 	{
