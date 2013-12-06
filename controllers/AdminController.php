@@ -25,7 +25,7 @@ class AdminController extends ModuleAdminController
 		$patients = PAS_Patient_Merged::model()->with('patient')->findAll(array('order'=>'t.id asc'));
 		Yii::app()->event->dispatch('end_batch_mode');
 
-		Audit::add('admin','list',null,false,array('module'=>'mehpas','model'=>'PAS_Merged_Patient'));
+		Audit::add('admin','list',null,null,array('module'=>'mehpas','model'=>'PAS_Merged_Patient'));
 
 		$this->render('mergedpatients',array('patients'=>$patients));
 	}
@@ -41,7 +41,7 @@ class AdminController extends ModuleAdminController
 
 			$merged->resolveMerged();
 
-			Audit::add('admin','resolve',$merged_id,false,array('module'=>'mehpas','model'=>'PAS_Merged_Patient'));
+			Audit::add('admin','resolve',$merged_id,null,array('module'=>'mehpas','model'=>'PAS_Merged_Patient'));
 		}
 
 		Yii::app()->event->dispatch('end_batch_mode');
