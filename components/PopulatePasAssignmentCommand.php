@@ -49,8 +49,11 @@ class PopulatePasAssignmentCommand extends CConsoleCommand
 		$gps = Yii::app()->db->createCommand()
 		->select('gp.id, gp.obj_prof')
 		->from('gp')
-		->leftJoin('pas_assignment', "pas_assignment.internal_id = gp.id AND pas_assignment.internal_type = 'Gp'")
-		->where('pas_assignment.id IS NULL')
+		->leftJoin('pas_assignment', "pas_assignment.internal_id = gp.id AND pas_assignment.internal_type = :internal_type and pas_assignment.deleted = :notdeleted")
+		->where('pas_assignment.id IS NULL and gp.deleted = :notdeleted', array(
+			':internal_type' => 'Gp',
+			':notdeleted' => 0,
+		))
 		->order('gp.last_modified_date DESC')
 		->queryAll();
 
@@ -73,7 +76,7 @@ class PopulatePasAssignmentCommand extends CConsoleCommand
 			$patient = Yii::app()->db->createCommand()
 			->select('count(id)')
 			->from('patient')
-			->where('gp_id = :gp_id', array(':gp_id' => $gp_id))
+			->where('gp_id = :gp_id and patient.deleted = :notdeleted', array(':gp_id' => $gp_id, ':notdeleted' => 0))
 			->queryScalar();
 			if (!$patient) {
 				// GP is not being used, let's delete it!
@@ -87,14 +90,17 @@ class PopulatePasAssignmentCommand extends CConsoleCommand
 			$duplicate_gps = Yii::app()->db->createCommand()
 			->select('id')
 			->from('gp')
-			->where('obj_prof = :obj_prof AND id != :gp_id', array(':obj_prof' => $obj_prof, ':gp_id' => $gp_id))
+			->where('obj_prof = :obj_prof AND id != :gp_id and gp.deleted = :notdeleted', array(':obj_prof' => $obj_prof, ':gp_id' => $gp_id, ':notdeleted' => 0))
 			->queryColumn();
 			if (count($duplicate_gps)) {
 				echo "There are one or more other GPs with obj_prof $obj_prof, attempting to merge\n";
 				$merged = 0;
 				foreach ($duplicate_gps as $duplicate_gp_id) {
 					$gp_patients = Yii::app()->db->createCommand()
-					->update('patient', array('gp_id' => $gp_id), 'gp_id = :duplicate_gp_id', array(':duplicate_gp_id' => $duplicate_gp_id));
+					->update('patient', array('gp_id' => $gp_id), 'gp_id = :duplicate_gp_id and deleted = :notdeleted', array(
+						':duplicate_gp_id' => $duplicate_gp_id,
+						':notdeleted' => 0,
+					));
 					$results['duplicates']++;
 					$results['removed']++;
 					Gp::model()->deleteByPk($duplicate_gp_id);
@@ -176,8 +182,11 @@ class PopulatePasAssignmentCommand extends CConsoleCommand
 		$patients = Yii::app()->db->createCommand()
 		->select('patient.id, patient.hos_num')
 		->from('patient')
-		->leftJoin('pas_assignment', "pas_assignment.internal_id = patient.id AND pas_assignment.internal_type = 'Patient'")
-		->where('pas_assignment.id IS NULL')
+		->leftJoin('pas_assignment', "pas_assignment.internal_id = patient.id AND pas_assignment.internal_type = :internal_type and pas_assignment.deleted = :notdeleted")
+		->where('pas_assignment.id IS NULL and patient.deleted = :notdeleted', array(
+			':internal_type' => 'Patient',
+			':notdeleted' => 0,
+		))
 		->queryAll();
 
 		echo "There are ".count($patients)." patients without an assignment, processing...\n";
@@ -243,8 +252,11 @@ class PopulatePasAssignmentCommand extends CConsoleCommand
 		$practices = Yii::app()->db->createCommand()
 		->select('practice.id, practice.code')
 		->from('practice')
-		->leftJoin('pas_assignment', "pas_assignment.internal_id = practice.id AND pas_assignment.internal_type = 'Practice'")
-		->where('pas_assignment.id IS NULL')
+		->leftJoin('pas_assignment', "pas_assignment.internal_id = practice.id AND pas_assignment.internal_type = :internal_type and pas_assignment.deleted = :notdeleted")
+		->where('pas_assignment.id IS NULL and practice.deleted = :notdeleted', array(
+			':internal_type' => 'Practice',
+			':notdeleted' => 0,
+		))
 		->order('practice.last_modified_date DESC')
 		->queryAll();
 
@@ -267,7 +279,10 @@ class PopulatePasAssignmentCommand extends CConsoleCommand
 			$patient = Yii::app()->db->createCommand()
 			->select('count(id)')
 			->from('patient')
-			->where('practice_id = :practice_id', array(':practice_id' => $practice_id))
+			->where('practice_id = :practice_id and deleted = :notdeleted', array(
+				':practice_id' => $practice_id,
+				':notdeleted' => 0,
+			))
 			->queryScalar();
 			if (!$patient) {
 				// Practice is not being used, let's delete it!
@@ -281,7 +296,11 @@ class PopulatePasAssignmentCommand extends CConsoleCommand
 			$duplicate_practices = Yii::app()->db->createCommand()
 			->select('id')
 			->from('practice')
-			->where('code = :code AND id != :practice_id', array(':code' => $code, ':practice_id' => $practice_id))
+			->where('code = :code AND id != :practice_id AND deleted = :notdeleted', array(
+				':code' => $code,
+				':practice_id' => $practice_id,
+				':notdeleted' => 0,
+			))
 			->queryColumn();
 			if (count($duplicate_practices)) {
 				echo "There are one or more other practices with code $code, attempting to merge\n";

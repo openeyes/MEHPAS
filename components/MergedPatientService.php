@@ -32,7 +32,10 @@ class MergedPatientService
 			->from('pas_assignment')
 			->join("patient","pas_assignment.internal_id = patient.id")
 			->join("contact","patient.contact_id = contact.id")
-			->where("pas_assignment.internal_type = 'Patient'")
+			->where("pas_assignment.internal_type = :internal_type and pas_assignment.deleted = :notdeleted and patient.deleted = :notdeleted and contact.deleted = :notdeleted",array(
+				':internal_type' => 'Patient',
+				':notdeleted' => 0,
+			))
 			->queryAll() as $row) {
 
 			$patients[] = $row;

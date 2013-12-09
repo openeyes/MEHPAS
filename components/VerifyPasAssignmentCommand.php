@@ -48,7 +48,10 @@ class VerifyPasAssignmentCommand extends CConsoleCommand
 		$patients = Yii::app()->db->createCommand()
 		->select('external_id')
 		->from('pas_assignment')
-		->where("pas_assignment.internal_type = 'Patient'")
+		->where("pas_assignment.internal_type = :internal_type and pas_assignment.deleted = :notdeleted", array(
+			':internal_type' => 'Patient',
+			':notdeleted' => 0,
+		))
 		->queryAll();
 
 		echo "There are ".count($patients)." patient assignments, processing...\n";
@@ -86,7 +89,10 @@ class VerifyPasAssignmentCommand extends CConsoleCommand
 		$gps = Yii::app()->db->createCommand()
 		->select('external_id')
 		->from('pas_assignment')
-		->where("pas_assignment.internal_type = 'Gp'")
+		->where("pas_assignment.internal_type = :internal_type and pas_assignment.deleted = :notdeleted", array(
+			':internal_type' => 'Gp',
+			':notdeleted' => 0,
+		))
 		->queryAll();
 
 		echo "There are ".count($gps)." gp assignments, processing...\n";
