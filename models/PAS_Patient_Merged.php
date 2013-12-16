@@ -24,7 +24,7 @@
  * @property string $id
  * @property string $name
  */
-class PAS_Patient_Merged extends BaseActiveRecord
+class PAS_Patient_Merged extends BaseActiveRecordVersioned
 {
 	/**
 	 * Returns the static model of the specified AR class.
