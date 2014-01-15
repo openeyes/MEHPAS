@@ -8,9 +8,9 @@ class m131204_165110_table_versioning extends CDbMigration
 CREATE TABLE `pas_assignment_version` (
 	`id` int(10) unsigned NOT NULL AUTO_INCREMENT,
 	`internal_id` int(10) unsigned NOT NULL,
-	`external_id` varchar(40) COLLATE utf8_bin NOT NULL,
-	`internal_type` varchar(40) COLLATE utf8_bin NOT NULL,
-	`external_type` varchar(40) COLLATE utf8_bin NOT NULL,
+	`external_id` varchar(40) NOT NULL,
+	`internal_type` varchar(40) NOT NULL,
+	`external_type` varchar(40) NOT NULL,
 	`created_user_id` int(10) unsigned NOT NULL DEFAULT '1',
 	`created_date` datetime NOT NULL,
 	`last_modified_user_id` int(10) unsigned NOT NULL DEFAULT '1',
@@ -18,7 +18,7 @@ CREATE TABLE `pas_assignment_version` (
 	PRIMARY KEY (`id`),
 	UNIQUE KEY `internal_key` (`internal_id`,`internal_type`),
 	UNIQUE KEY `external_key` (`external_id`,`external_type`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci
 		");
 
 		$this->alterColumn('pas_assignment_version','id','int(10) unsigned NOT NULL');
@@ -37,10 +37,10 @@ CREATE TABLE `pas_assignment_version` (
 CREATE TABLE `pas_patient_merged_version` (
 	`id` int(10) unsigned NOT NULL AUTO_INCREMENT,
 	`patient_id` int(10) unsigned NOT NULL,
-	`new_hos_num` varchar(40) COLLATE utf8_bin DEFAULT NULL,
-	`new_rm_patient_no` varchar(40) COLLATE utf8_bin NOT NULL,
-	`new_first_name` varchar(255) COLLATE utf8_bin NOT NULL,
-	`new_last_name` varchar(255) COLLATE utf8_bin NOT NULL,
+	`new_hos_num` varchar(40) DEFAULT NULL,
+	`new_rm_patient_no` varchar(40) NOT NULL,
+	`new_first_name` varchar(255) NOT NULL,
+	`new_last_name` varchar(255) NOT NULL,
 	`last_modified_date` datetime NOT NULL DEFAULT '1900-01-01 00:00:00',
 	`last_modified_user_id` int(10) unsigned NOT NULL DEFAULT '1',
 	`created_user_id` int(10) unsigned NOT NULL DEFAULT '1',
@@ -52,7 +52,7 @@ CREATE TABLE `pas_patient_merged_version` (
 	CONSTRAINT `acv_pas_patient_merged_created_user_id_fk` FOREIGN KEY (`created_user_id`) REFERENCES `user` (`id`),
 	CONSTRAINT `acv_pas_patient_merged_last_modified_user_id_fk` FOREIGN KEY (`last_modified_user_id`) REFERENCES `user` (`id`),
 	CONSTRAINT `acv_pas_patient_merged_patient_id_fk` FOREIGN KEY (`patient_id`) REFERENCES `patient` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci
 		");
 
 		$this->alterColumn('pas_patient_merged_version','id','int(10) unsigned NOT NULL');

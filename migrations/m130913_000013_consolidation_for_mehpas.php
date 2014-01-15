@@ -61,7 +61,7 @@ class m130913_000013_consolidation_for_mehpas extends OEMigration
 			  PRIMARY KEY (`id`),
 			  UNIQUE KEY `internal_key` (`internal_id`,`internal_type`),
 			  UNIQUE KEY `external_key` (`external_id`,`external_type`)
-			) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci
 		");
 
 		$this->execute("CREATE TABLE `pas_patient_merged` (
@@ -82,7 +82,7 @@ class m130913_000013_consolidation_for_mehpas extends OEMigration
 			  CONSTRAINT `pas_patient_merged_created_user_id_fk` FOREIGN KEY (`created_user_id`) REFERENCES `user` (`id`),
 			  CONSTRAINT `pas_patient_merged_last_modified_user_id_fk` FOREIGN KEY (`last_modified_user_id`) REFERENCES `user` (`id`),
 			  CONSTRAINT `pas_patient_merged_patient_id_fk` FOREIGN KEY (`patient_id`) REFERENCES `patient` (`id`)
-			) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci
 		");
 
 		$migrations_path = dirname(__FILE__);
