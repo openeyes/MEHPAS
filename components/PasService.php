@@ -108,7 +108,6 @@ class PasService
 					if (trim(implode('',array($address1, $address2, $city, $postcode)))) {
 						if (!$address = $contact->address) {
 							$address = new Address();
-							$address->parent_class = 'Contact';
 						}
 						$address->address1 = $address1;
 						$address->address2 = $address2;
@@ -139,7 +138,7 @@ class PasService
 					}
 
 					if ($address) {
-						$address->parent_id = $contact->id;
+						$address->contact_id = $contact->id;
 						if (!$address->save()) {
 							throw new CException('Cannot save gp contact address: '.print_r($address->getErrors(),true));
 						}
@@ -235,8 +234,7 @@ class PasService
 		if (trim(implode('',array($address1, $address2, $city, $postcode)))) {
 			if (!$address = $contact->address) {
 				$address = new Address();
-				$address->parent_class = 'Contact';
-				$address->parent_id = $contact->id;
+				$address->contact_id = $contact->id;
 			}
 			$address->address1 = $address1;
 			$address->address2 = $address2;
@@ -319,8 +317,7 @@ class PasService
 					if (trim(implode('',array($address1, $address2, $city, $postcode)))) {
 						if (!$address = $contact->address) {
 							$address = new Address();
-							$address->parent_class = 'Contact';
-							$address->parent_id = $contact->id;
+							$address->contact_id = $contact->id;
 						}
 						$address->address1 = $address1;
 						$address->address2 = $address2;
@@ -623,7 +620,7 @@ class PasService
 						Yii::log("Looking for patient address: PAS_PatientAddress->POSTCODE: ".$pas_address->POSTCODE, 'trace');
 						$matched_clause = ($matched_address_ids) ? ' AND id NOT IN ('.implode(',',$matched_address_ids).')' : '';
 						$address = Address::model()->find(array(
-								'condition' => "parent_id = :contact_id AND parent_class = 'Contact' AND REPLACE(postcode,' ','') = :postcode" . $matched_clause,
+								'condition' => "contact_id = :contact_id AND REPLACE(postcode,' ','') = :postcode" . $matched_clause,
 								'params' => array(':contact_id' => $contact->id, ':postcode' => str_replace(' ','',$pas_address->POSTCODE)),
 						));
 
@@ -631,8 +628,7 @@ class PasService
 						if (!$address) {
 							Yii::log("Patient address not found, creating", 'trace');
 							$address = new Address;
-							$address->parent_id = $contact->id;
-							$address->parent_class = 'Contact';
+							$address->contact_id = $contact->id;
 						}
 
 						$this->updateAddress($address, $pas_address);
@@ -645,7 +641,7 @@ class PasService
 					// Remove any orphaned addresses (expired?)
 					$matched_string = implode(',',$matched_address_ids);
 					$orphaned_addresses = Address::model()->deleteAll(array(
-							'condition' => "parent_id = :contact_id AND parent_class = 'Contact' AND id NOT IN($matched_string)",
+							'condition' => "contact_id = :contact_id AND id NOT IN($matched_string)",
 							'params' => array(':contact_id' => $contact->id),
 					));
 					$matched_addresses = count($matched_address_ids);
