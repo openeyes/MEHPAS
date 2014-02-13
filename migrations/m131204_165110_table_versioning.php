@@ -25,7 +25,6 @@ CREATE TABLE `pas_assignment_version` (
 		$this->dropPrimaryKey('id','pas_assignment_version');
 
 		$this->createIndex('pas_assignment_aid_fk','pas_assignment_version','id');
-		$this->addForeignKey('pas_assignment_aid_fk','pas_assignment_version','id','pas_assignment','id');
 
 		$this->addColumn('pas_assignment_version','version_date',"datetime not null default '1900-01-01 00:00:00'");
 
@@ -59,25 +58,16 @@ CREATE TABLE `pas_patient_merged_version` (
 		$this->dropPrimaryKey('id','pas_patient_merged_version');
 
 		$this->createIndex('pas_patient_merged_aid_fk','pas_patient_merged_version','id');
-		$this->addForeignKey('pas_patient_merged_aid_fk','pas_patient_merged_version','id','pas_patient_merged','id');
 
 		$this->addColumn('pas_patient_merged_version','version_date',"datetime not null default '1900-01-01 00:00:00'");
 
 		$this->addColumn('pas_patient_merged_version','version_id','int(10) unsigned NOT NULL');
 		$this->addPrimaryKey('version_id','pas_patient_merged_version','version_id');
 		$this->alterColumn('pas_patient_merged_version','version_id','int(10) unsigned NOT NULL AUTO_INCREMENT');
-
-		$this->addColumn('pas_assignment','deleted','tinyint(1) unsigned not null');
-		$this->addColumn('pas_assignment_version','deleted','tinyint(1) unsigned not null');
-		$this->addColumn('pas_patient_merged','deleted','tinyint(1) unsigned not null');
-		$this->addColumn('pas_patient_merged_version','deleted','tinyint(1) unsigned not null');
 	}
 
 	public function down()
 	{
-		$this->dropColumn('pas_assignment','deleted');
-		$this->dropColumn('pas_patient_merged','deleted');
-
 		$this->dropTable('pas_assignment_version');
 		$this->dropTable('pas_patient_merged_version');
 	}
