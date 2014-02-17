@@ -40,31 +40,28 @@ class PasObserver
 		}
 
 		// Check if stale
-		$assignment = PasAssignment::model()->findByInternal('Patient', $patient->id);
-		if ($assignment && $assignment->isStale()) {
-
-			// Assignment is stale (and locked ready for update)
-			Yii::log('Patient details stale', 'trace');
-			$pas_service = new PasService();
-			if ($pas_service->isAvailable()) {
+		$pas_service = new PasService();
+		if ($pas_service->isAvailable()) {
+			$assignment = PasAssignment::model()->findByInternal('Patient', $patient->id);
+			if ($assignment && $assignment->isStale()) {
+				// Assignment is stale (and locked ready for update)
+				Yii::log('Patient details stale', 'trace');
 				$pas_service->updatePatientFromPas($patient, $assignment);
-			} else {
-				$pas_service->flashPasDown();
-				$assignment->unlock();
+			} elseif (!$assignment) {
+				// Error, missing assignment
+				Yii::log("Cannot find Patient assignment|id: {$patient->id}, hos_num: {$patient->hos_num}", 'warning', 'application.action');
+				if (get_class(Yii::app()) == 'CConsoleApplication') {
+					echo "Warning: unable to update patient $patient->hos_num from PAS (merged patient)\n";
+				} else {
+					Yii::app()->getController()->render('//error/errorPAS');
+					Yii::app()->end();
+				}
 			}
-
-		} elseif (!$assignment) {
-
-			// Error, missing assignment
-			Yii::log("Cannot find Patient assignment|id: {$patient->id}, hos_num: {$patient->hos_num}", 'warning', 'application.action');
-			if (get_class(Yii::app()) == 'CConsoleApplication') {
-				echo "Warning: unable to update patient $patient->hos_num from PAS (merged patient)\n";
-			} else {
-				Yii::app()->getController()->render('//error/errorPAS');
-				Yii::app()->end();
-			}
-
 		}
+		else {
+			$pas_service->flashPasDown();
+		}
+
 
 	}
 
