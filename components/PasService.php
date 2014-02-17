@@ -705,7 +705,7 @@ class PasService
 	}
 
 	public function updateReferralFromPAS($patient,$pasReferral) {
-		if (!$referralType = ReferralType::model()->find('code=?',array($pasReferral['SRCE_REF']))) {
+		if (!$referralType = ReferralType::model()->notDeleted()->find('code=?',array($pasReferral['SRCE_REF']))) {
 			if (!$pasReferralType = PAS_ReferralType::model()->find('ULNKEY=? and code=?',array('SREF',$pasReferral['SRCE_REF']))) {
 				throw new Exception("PAS referral apparently created with a non-existant code: {$pasReferral['REFNO']} / {$pasReferral['SRCE_REF']}");
 			}
