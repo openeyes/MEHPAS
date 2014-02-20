@@ -16,8 +16,6 @@ CREATE TABLE `pas_assignment_version` (
 	`last_modified_user_id` int(10) unsigned NOT NULL DEFAULT '1',
 	`last_modified_date` datetime NOT NULL,
 	PRIMARY KEY (`id`),
-	UNIQUE KEY `internal_key` (`internal_id`,`internal_type`),
-	UNIQUE KEY `external_key` (`external_id`,`external_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci
 		");
 
