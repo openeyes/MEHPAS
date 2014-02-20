@@ -249,7 +249,7 @@ class PasService
 			}
 		} else {
 			// Address doesn't look useful, so we'll delete it
-			if ($address = $commissioning_body->contact->address) {
+			if ($address = $contact->address) {
 				$address->delete();
 				$address = null;
 			}
@@ -330,7 +330,7 @@ class PasService
 						$address->country_id = 1;
 					} else {
 						// Address doesn't look useful, so we'll delete it
-						if ($address = $practice->contact->address) {
+						if ($address = $contact->address) {
 							$address->delete();
 							$address = null;
 						}
