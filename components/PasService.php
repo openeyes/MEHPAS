@@ -493,6 +493,114 @@ class PasService
 
 				$patient->attributes = $patient_attrs;
 
+				// Save
+				if (!$patient->save()) {
+					throw new CException('Cannot save patient: '.print_r($patient->getErrors(),true));
+				}
+
+				$contact = $patient->contact;
+				$contact->title = $this->fixCase($pas_patient->name->TITLE);
+				$contact->first_name = ($pas_patient->name->NAME1) ? $this->fixCase($pas_patient->name->NAME1) : '(UNKNOWN)';
+				$contact->last_name = $this->fixCase($pas_patient->name->SURNAME_ID);
+				if ($pas_patient->address) {
+					// Get primary phone from patient's main address
+					$contact->primary_phone = $pas_patient->address->TEL_NO;
+				}
+				if (!$contact->save()) {
+					throw new CException('Cannot save patient contact: '.print_r($contact->getErrors(),true));
+				}
+
+				$assignment->internal_id = $patient->id;
+				if (!$assignment->save()) {
+					throw new CException('Cannot save patient assignment: '.print_r($assignment->getErrors(),true));
+				}
+
+				// Addresses
+				if ($pas_patient->addresses) {
+					// Matching addresses for update is tricky cos we don't have a primary key on the pas address table,
+					// so we need to keep track of patient address ids as we go
+					$matched_address_ids = array();
+					foreach ($pas_patient->addresses as $pas_address) {
+
+						// Match an address
+						Yii::log("Looking for patient address: PAS_PatientAddress->POSTCODE: ".$pas_address->POSTCODE, 'trace');
+						$matched_clause = ($matched_address_ids) ? ' AND id NOT IN ('.implode(',',$matched_address_ids).')' : '';
+						$address = Address::model()->find(array(
+								'condition' => "parent_id = :contact_id AND parent_class = 'Contact' AND REPLACE(postcode,' ','') = :postcode" . $matched_clause,
+								'params' => array(':contact_id' => $contact->id, ':postcode' => str_replace(' ','',$pas_address->POSTCODE)),
+						));
+
+						// Check if we have an address (that we haven't already matched)
+						if (!$address) {
+							Yii::log("Patient address not found, creating", 'trace');
+							$address = new Address;
+							$address->parent_id = $contact->id;
+							$address->parent_class = 'Contact';
+						}
+
+						$this->updateAddress($address, $pas_address);
+						if (!$address->save()) {
+							throw new CException('Cannot save patient address: '.print_r($address->getErrors(),true));
+						}
+						$matched_address_ids[] = $address->id;
+					}
+
+					// Remove any orphaned addresses (expired?)
+					$matched_string = implode(',',$matched_address_ids);
+					$orphaned_addresses = Address::model()->deleteAll(array(
+							'condition' => "parent_id = :contact_id AND parent_class = 'Contact' AND id NOT IN($matched_string)",
+							'params' => array(':contact_id' => $contact->id),
+					));
+					$matched_addresses = count($matched_address_ids);
+					if ($orphaned_addresses) {
+						Yii::log("$orphaned_addresses orphaned patient addresses were deleted", 'trace');
+					}
+					Yii::log("Patient has $matched_addresses valid addresses", 'trace');
+				}
+
+				// CCG assignment
+				$commissioning_body = null;
+				if($pas_patient->address && $ha_code = $pas_patient->address->HA_CODE) {
+					if($commissioning_body = $this->updateCcgFromPas($ha_code)) {
+						if(!$ccg_assignment = CommissioningBodyPatientAssignment::model()
+							->find('commissioning_body_id = :commissioning_body_id AND patient_id = :patient_id',
+								array(':commissioning_body_id' => $commissioning_body->id, ':patient_id' => $patient->id))) {
+							$ccg_assignment = new CommissioningBodyPatientAssignment;
+							$ccg_assignment->patient_id = $patient->id;
+							$ccg_assignment->commissioning_body_id = $commissioning_body->id;
+							$ccg_assignment->save();
+						}
+					}
+				}
+
+				// Remove any other CCG assignments
+				$criteria = new CDbCriteria();
+				$criteria->condition = 'patient_id = :patient_id AND commissioning_body_type.shortname = :commissioning_body_type';
+				$criteria->params = array(':patient_id' => $patient->id, ':commissioning_body_type' => 'CCG');
+				$criteria->join = 'JOIN commissioning_body ON commissioning_body.id = t.commissioning_body_id JOIN commissioning_body_type ON commissioning_body_type.id = commissioning_body.commissioning_body_type_id';
+				if($commissioning_body) {
+					$criteria->condition .= ' AND commissioning_body_id != :id';
+					$criteria->params[':id'] = $commissioning_body->id;
+				}
+				$other_ccgs = array();
+				foreach(CommissioningBodyPatientAssignment::model()->findAll($criteria) as $other_ccg) {
+					$other_ccgs[] = $other_ccg->id;
+				}
+				CommissioningBodyPatientAssignment::model()->deleteByPk($other_ccgs);
+
+				/* FIXME - Disabling due to errors and currently unused
+				$pas_referrals = PAS_Referral::model()->findAll('X_CN=?',array($pas_patient['RM_PATIENT_NO']));
+
+				if ($pas_referrals) {
+					foreach ($pas_referrals as $pasReferral) {
+						$this->updateReferralFromPAS($patient,$pasReferral);
+					}
+				}
+				*/
+
+				// Advisory locks cannot be nested so release patient lock here
+				$assignment->unlock();
+
 				// Get latest GP mapping from PAS
 				$pas_patient_gp = $pas_patient->PatientGp;
 				if ($pas_patient_gp) {
@@ -550,125 +658,13 @@ class PasService
 						Yii::log("Patient has no Practice|id: {$patient->id}, hos_num: {$patient->hos_num}", 'warning', 'application.action');
 					}
 
+					if (!$patient->save()) {
+						throw new CException('Cannot save patient: '.print_r($patient->getErrors(),true));
+					}
 				} else {
 					Yii::log("Patient has no GP/practice in PAS", 'trace');
 					Yii::log("Patient has no GP or Practice|id: {$patient->id}, hos_num: {$patient->hos_num}", 'warning', 'application.action');
 				}
-
-				if (!$contact = $patient->contact) {
-					$contact = new Contact;
-					if (!$contact->save()) {
-						throw new Exception("Unable to save patient contact: ".print_r($contact->getErrors(),true));
-					}
-					$patient->contact_id = $contact->id;
-				}
-
-				// Save
-				if (!$patient->save()) {
-					throw new CException('Cannot save patient: '.print_r($patient->getErrors(),true));
-				}
-
-				$contact->title = $this->fixCase($pas_patient->name->TITLE);
-				$contact->first_name = ($pas_patient->name->NAME1) ? $this->fixCase($pas_patient->name->NAME1) : '(UNKNOWN)';
-				$contact->last_name = $this->fixCase($pas_patient->name->SURNAME_ID);
-				if ($pas_patient->address) {
-					// Get primary phone from patient's main address
-					$contact->primary_phone = $pas_patient->address->TEL_NO;
-				}
-				if (!$contact->save()) {
-					throw new CException('Cannot save patient contact: '.print_r($contact->getErrors(),true));
-				}
-
-				$assignment->internal_id = $patient->id;
-				if (!$assignment->save()) {
-					throw new CException('Cannot save patient assignment: '.print_r($assignment->getErrors(),true));
-				}
-
-				// Addresses
-				if ($pas_patient->addresses) {
-
-					// Matching addresses for update is tricky cos we don't have a primary key on the pas address table,
-					// so we need to keep track of patient address ids as we go
-					$matched_address_ids = array();
-					foreach ($pas_patient->addresses as $pas_address) {
-
-						// Match an address
-						Yii::log("Looking for patient address: PAS_PatientAddress->POSTCODE: ".$pas_address->POSTCODE, 'trace');
-						$matched_clause = ($matched_address_ids) ? ' AND id NOT IN ('.implode(',',$matched_address_ids).')' : '';
-						$address = Address::model()->find(array(
-								'condition' => "parent_id = :contact_id AND parent_class = 'Contact' AND REPLACE(postcode,' ','') = :postcode" . $matched_clause,
-								'params' => array(':contact_id' => $contact->id, ':postcode' => str_replace(' ','',$pas_address->POSTCODE)),
-						));
-
-						// Check if we have an address (that we haven't already matched)
-						if (!$address) {
-							Yii::log("Patient address not found, creating", 'trace');
-							$address = new Address;
-							$address->parent_id = $contact->id;
-							$address->parent_class = 'Contact';
-						}
-
-						$this->updateAddress($address, $pas_address);
-						if (!$address->save()) {
-							throw new CException('Cannot save patient address: '.print_r($address->getErrors(),true));
-						}
-						$matched_address_ids[] = $address->id;
-					}
-
-					// Remove any orphaned addresses (expired?)
-					$matched_string = implode(',',$matched_address_ids);
-					$orphaned_addresses = Address::model()->deleteAll(array(
-							'condition' => "parent_id = :contact_id AND parent_class = 'Contact' AND id NOT IN($matched_string)",
-							'params' => array(':contact_id' => $contact->id),
-					));
-					$matched_addresses = count($matched_address_ids);
-					if ($orphaned_addresses) {
-						Yii::log("$orphaned_addresses orphaned patient addresses were deleted", 'trace');
-					}
-					Yii::log("Patient has $matched_addresses valid addresses", 'trace');
-
-				}
-
-				// CCG assignment
-				$commissioning_body = null;
-				if($pas_patient->address && $ha_code = $pas_patient->address->HA_CODE) {
-					if($commissioning_body = $this->updateCcgFromPas($ha_code)) {
-						if(!$ccg_assignment = CommissioningBodyPatientAssignment::model()
-							->find('commissioning_body_id = :commissioning_body_id AND patient_id = :patient_id',
-								array(':commissioning_body_id' => $commissioning_body->id, ':patient_id' => $patient->id))) {
-							$ccg_assignment = new CommissioningBodyPatientAssignment;
-							$ccg_assignment->patient_id = $patient->id;
-							$ccg_assignment->commissioning_body_id = $commissioning_body->id;
-							$ccg_assignment->save();
-						}
-					}
-				}
-
-				// Remove any other CCG assignments
-				$criteria = new CDbCriteria();
-				$criteria->condition = 'patient_id = :patient_id AND commissioning_body_type.shortname = :commissioning_body_type';
-				$criteria->params = array(':patient_id' => $patient->id, ':commissioning_body_type' => 'CCG');
-				$criteria->join = 'JOIN commissioning_body ON commissioning_body.id = t.commissioning_body_id JOIN commissioning_body_type ON commissioning_body_type.id = commissioning_body.commissioning_body_type_id';
-				if($commissioning_body) {
-					$criteria->condition .= ' AND commissioning_body_id != :id';
-					$criteria->params[':id'] = $commissioning_body->id;
-				}
-				$other_ccgs = array();
-				foreach(CommissioningBodyPatientAssignment::model()->findAll($criteria) as $other_ccg) {
-					$other_ccgs[] = $other_ccg->id;
-				}
-				CommissioningBodyPatientAssignment::model()->deleteByPk($other_ccgs);
-
-				/* FIXME - Disabling due to errors and currently unused
-				$pas_referrals = PAS_Referral::model()->findAll('X_CN=?',array($pas_patient['RM_PATIENT_NO']));
-
-				if ($pas_referrals) {
-					foreach ($pas_referrals as $pasReferral) {
-						$this->updateReferralFromPAS($patient,$pasReferral);
-					}
-				}
-				*/
-
 			} else {
 				Yii::log("Patient with external ID '{$assignment->external_id}' not found in PAS", 'warning');
 
