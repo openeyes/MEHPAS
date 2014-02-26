@@ -19,7 +19,24 @@
 
 class PasService
 {
+	/**
+	 * @return PasService
+	 */
+	static public function load()
+	{
+		return new self(PasAssignment::model());
+	}
+
+	protected $assign;
 	protected $available;
+
+	/**
+	 * @param PasAssignment $assign PasAssignment static model
+	 */
+	public function __construct(PasAssignment $assign)
+	{
+		$this->assign = $assign;
+	}
 
 	/**
 	 * Is PAS enabled and up?
@@ -39,6 +56,14 @@ class PasService
 			}
 		}
 		return $this->available;
+	}
+
+	/**
+	 * @param boolean $available
+	 */
+	public function setAvailable($available = true)
+	{
+		$this->available = $available;
 	}
 
 	/**
@@ -442,7 +467,7 @@ class PasService
 		$criteria = new CDbCriteria();
 		$criteria->addInCondition('internal_id', $patient_ids);
 		$criteria->compare('internal_type', 'Patient');
-		$assignments = PasAssignment::model()->findAll($criteria);
+		$assignments = $this->assign->findAll($criteria);
 		$rm_patient_numbers = array();
 		foreach ($assignments as $assignment) {
 			$rm_patient_numbers[] = $assignment->external_id;
@@ -611,7 +636,7 @@ class PasService
 						Yii::log("GP on blocklist, ignoring", 'trace');
 						$patient->gp_id = null;
 					} else {
-						$gp_assignment = PasAssignment::model()->findByExternal('PAS_Gp', $pas_patient_gp->GP_ID);
+						$gp_assignment = $this->assign->findByExternal('PAS_Gp', $pas_patient_gp->GP_ID);
 						$gp = $gp_assignment->internal;
 						if ($gp_assignment->isStale()) {
 							$gp = $this->updateGpFromPas($gp, $gp_assignment);
@@ -636,7 +661,7 @@ class PasService
 
 					// Check if the Practice is in openeyes
 					Yii::log("Checking if Practice is in openeyes: PAS_PatientGps->PRACTICE_CODE: {$pas_patient_gp->PRACTICE_CODE}", 'trace');
-					$practice_assignment = PasAssignment::model()->findByExternal('PAS_Practice', $pas_patient_gp->PRACTICE_CODE);
+					$practice_assignment = $this->assign->findByExternal('PAS_Practice', $pas_patient_gp->PRACTICE_CODE);
 					$practice = $practice_assignment->internal;
 					if ($practice_assignment->isStale()) {
 						$practice = $this->updatePracticeFromPas($practice, $practice_assignment);
@@ -694,7 +719,7 @@ class PasService
 			}
 		}
 
-		if (!$ref_assignment = PasAssignment::model()->find('external_type=? and external_id=?',array('PAS_Referral',$pasReferral->REFNO))) {
+		if (!$ref_assignment = $this->assign->find('external_type=? and external_id=?',array('PAS_Referral',$pasReferral->REFNO))) {
 			$ref_assignment = new PasAssignment;
 			$ref_assignment->internal_type = 'Referral';
 			$ref_assignment->external_type = 'PAS_Referral';
@@ -887,7 +912,7 @@ class PasService
 	protected function createOrUpdatePatient($rm_patient_no, $hos_num)
 	{
 		//Yii::log('Getting assignment','trace');
-		$assignment = PasAssignment::model()->findByExternal('PAS_Patient', $rm_patient_no);
+		$assignment = $this->assign->findByExternal('PAS_Patient', $rm_patient_no);
 
 		if ($assignment->isStale()) {
 			$patient = $assignment->internal;
