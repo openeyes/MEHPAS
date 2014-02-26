@@ -375,7 +375,7 @@ class PasService
 					$criteria->condition = 'practice_id = :practice_id AND commissioning_body_type.shortname = :commissioning_body_type';
 					$criteria->join = 'JOIN commissioning_body ON commissioning_body.id = t.commissioning_body_id JOIN commissioning_body_type ON commissioning_body_type.id = commissioning_body.commissioning_body_type_id';
 					$criteria->params = array(':practice_id' => $practice->id, ':commissioning_body_type' => 'CCG');
-					if($commissioning_body) {
+					if(isset($commissioning_body)) {
 						$criteria->condition .= ' AND commissioning_body_id != :id';
 						$criteria->params[':id'] = $commissioning_body->id;
 					}
