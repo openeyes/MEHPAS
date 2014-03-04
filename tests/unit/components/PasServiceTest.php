@@ -17,27 +17,25 @@ class PasServiceTest extends CDbTestCase
 {
 	protected $fixtures = array(
 		'Address',
+		'Contact',
 		'Gp',
 		'Patient',
 		'Practice',
 	);
 
+	private $pas_gp, $gp_assignment;
+	private $pas_practice, $practice_assignment;
+	private $pas_patient, $patient_assignment;
 	private $assign;
 	private $service;
-	private $pas_gp, $pas_practice, $pas_patient;
 
 	public function setUp()
 	{
-		$this->assign = $this->getMockBuilder('PasAssignment')->disableOriginalConstructor()->getMock();
-		$this->service = new PasService($this->assign);
-		$this->service->setAvailable();
-
 		$this->pas_gp = ComponentStubGenerator::generate(
 			'PAS_Gp',
 			array(
-				'GP_ID' => '13',
+				'OBJ_PROF' => 'GP42',
 				'NAT_ID' => '12345',
-				'OBJ_PROF' => '54321',
 				'FN1' => 'JOHN',
 				'FN2' => 'A.',
 				'SN' => 'ZOIDBERG',
@@ -54,11 +52,22 @@ class PasServiceTest extends CDbTestCase
 			)
 		);
 
+		$this->gp_assignment = ComponentStubGenerator::generate(
+			'PasAssignment',
+			array(
+				'external_type' => 'PAS_Gp',
+				'external_id' => 'GP42',
+				'external' => $this->pas_gp,
+				'internal' => new Gp,
+			)
+		);
+		$this->gp_assignment->expects($this->any())->method('save')->will($this->returnValue(true));
+
 		$this->pas_practice = ComponentStubGenerator::generate(
 			'PAS_Practice',
 			array(
+				'OBJ_LOC' => 'PRAC43',
 				'PRACTICE_CODE' => '67890',
-				'OBJ_LOC' => '67890',
 				'TEL_1' => '01234567890',
 				'ADD_NAM' => ' PLANET EXPRESS HEADQUARTERS ',
 				'ADD_NUM' => '123',
@@ -70,6 +79,17 @@ class PasServiceTest extends CDbTestCase
 			)
 		);
 
+		$this->practice_assignment = ComponentStubGenerator::generate(
+			'PasAssignment',
+			array(
+				'external_type' => 'PAS_Practice',
+				'external_id' => 'PRAC43',
+				'external' => $this->pas_practice,
+				'internal' => new Practice,
+			)
+		);
+		$this->practice_assignment->expects($this->any())->method('save')->will($this->returnValue(true));
+
 		$addresses = array(
 			ComponentStubGenerator::generate(
 				'PAS_PatientAddress',
@@ -79,7 +99,7 @@ class PasServiceTest extends CDbTestCase
 					'ADDR1' => 'MANHATTAN',
 					'ADDR2' => 'NEW NEW YORK',
 					'ADDR3' => 'UNITED STATES',
-					'POSTCODE' => '12345',
+					'POSTCODE' => '56789',
 					'TEL_NO' => '01234567890',
 //					'ADDR_TYPE' => 'H',
 				)
@@ -102,6 +122,7 @@ class PasServiceTest extends CDbTestCase
 		$this->pas_patient = ComponentStubGenerator::generate(
 			'PAS_Patient',
 			array(
+				'RM_PATIENT_NO' => 54374,
 				'SEX' => 'M',
 				'DATE_OF_BIRTH' => '1974-08-09',
 				'DATE_OF_DEATH' => null,
@@ -111,9 +132,34 @@ class PasServiceTest extends CDbTestCase
 				'name' => ComponentStubGenerator::generate('PAS_PatientSurname', array('SURNAME_ID' => 'FRY', 'NAME1' => 'PHILIP', 'TITLE' => 'MR')),
 				'address' => $addresses[0],
 				'addresses' => $addresses,
-				'PatientGp' => $this->pas_gp,
+				'PatientGp' => ComponentStubGenerator::generate('PAS_PatientGps', array('GP_ID' => 'GP42', 'PRACTICE_CODE' => 'PRAC43')),
 			)
 		);
+
+		$this->patient_assignment = ComponentStubGenerator::generate(
+			'PasAssignment',
+			array(
+				'external_type' => 'PAS_Patient',
+				'external_id' => 54374,
+				'external' => $this->pas_patient,
+				'internal' => new Patient,
+			)
+		);
+		$this->patient_assignment->expects($this->any())->method('save')->will($this->returnValue(true));
+
+		$this->assign = $this->getMockBuilder('PasAssignment')->disableOriginalConstructor()->getMock();
+		$this->assign->expects($this->any())->method('findByExternal')->will(
+			$this->returnValueMap(
+				array(
+					array('PAS_Gp', 'GP42', $this->gp_assignment),
+					array('PAS_Practice', 'PRAC43', $this->practice_assignment),
+					array('PAS_Patient', '54374', $this->patient_assignment),
+				)
+			)
+		);
+
+		$this->service = new PasService($this->assign);
+		$this->service->setAvailable();
 
 		parent::setUp();
 	}
@@ -121,14 +167,11 @@ class PasServiceTest extends CDbTestCase
 	public function testUpdateGpFromPas_New()
 	{
 		$gp = new Gp;
-		$assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_gp));
-		$assignment->expects($this->any())->method('save')->will($this->returnValue(true));
+		$this->assertSame($gp, $this->service->updateGpFromPas($gp, $this->gp_assignment));
 
-		$this->assertSame($gp, $this->service->updateGpFromPas($gp, $assignment));
-
-		$gp = Gp::model()->noPas()->findByPk($assignment->internal_id);
+		$gp = $this->fetchGp();
+		$this->assertEquals('GP42', $gp->obj_prof);
 		$this->assertEquals('12345', $gp->nat_id);
-		$this->assertEquals('54321', $gp->obj_prof);
 		$this->assertEquals('John A.', $gp->contact->first_name);
 		$this->assertEquals('Zoidberg', $gp->contact->last_name);
 		$this->assertEquals('Dr', $gp->contact->title);
@@ -142,54 +185,39 @@ class PasServiceTest extends CDbTestCase
 
 	public function testUpdateGpFromPas_Existing()
 	{
-		$gp = new Gp;
-		$assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_gp));
-		$assignment->expects($this->any())->method('save')->will($this->returnValue(true));
-		$this->service->updateGpFromPas($gp, $assignment);
-
+		$gp = $this->createGp();
 		$this->pas_gp->TITLE = 'VISCOUNT';
-		$this->assertSame($gp, $this->service->updateGpFromPas($gp, $assignment));
+		$this->assertSame($gp, $this->service->updateGpFromPas($gp, $this->gp_assignment));
 
-		$gp = Gp::model()->noPas()->findByPk($assignment->internal_id);
+		$gp = $this->fetchGp();
 		$this->assertEquals('Viscount', $gp->contact->title);
 	}
 
 	public function testUpdateGpFromPas_Existing_AddressGone()
 	{
-		$gp = new Gp;
-		$assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_gp));
-		$assignment->expects($this->any())->method('save')->will($this->returnValue(true));
-		$this->service->updateGpFromPas($gp, $assignment);
-
+		$gp = $this->createGp();
 		$this->pas_gp->ADD_NAM = $this->pas_gp->ADD_NUM = $this->pas_gp->ADD_ST = $this->pas_gp->ADD_DIS = $this->pas_gp->ADD_TWN = $this->pas_gp->ADD_CTY = $this->pas_gp->PC = '';
-		$this->service->updateGpFromPas($gp, $assignment);
+		$this->service->updateGpFromPas($gp, $this->gp_assignment);
 
-		$gp = Gp::model()->noPas()->findByPk($assignment->internal_id);
+		$gp = $this->fetchGp();
 		$this->assertNull($gp->contact->address);
 	}
 
 	public function testUpdateGpFromPas_Existing_Removed()
 	{
-		$gp = new Gp;
-		$assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_gp));
-		$assignment->expects($this->any())->method('save')->will($this->returnValue(true));
-		$this->service->updateGpFromPas($gp, $assignment);
-
-		$assignment->external = null;
-		$assignment->expects($this->once())->method('delete');
-		$this->assertNull($this->service->updateGpFromPas($gp, $assignment));
+		$gp = $this->createGp();
+		$this->gp_assignment->external = null;
+		$this->gp_assignment->expects($this->once())->method('delete');
+		$this->assertNull($this->service->updateGpFromPas($gp, $this->gp_assignment));
 	}
 
 	public function testUpdatePracticeFromPas_New()
 	{
 		$practice = new Practice;
-		$assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_practice));
-		$assignment->expects($this->any())->method('save')->will($this->returnValue(true));
+		$this->assertSame($practice, $this->service->updatePracticeFromPas($practice, $this->practice_assignment));
 
-		$this->assertSame($practice, $this->service->updatePracticeFromPas($practice, $assignment));
-
-		$practice = Practice::model()->noPas()->findByPk($assignment->internal_id);
-		$this->assertEquals('67890', $practice->code);
+		$practice = $this->fetchPractice();
+		$this->assertEquals('PRAC43', $practice->code);
 		$this->assertEquals('01234567890', $practice->phone);
 		$this->assertEquals('01234567890', $practice->contact->primary_phone);
 		$this->assertEquals("Planet Express Headquarters\n123 57th Street", $practice->contact->address->address1);
@@ -201,181 +229,125 @@ class PasServiceTest extends CDbTestCase
 
 	public function testUpdatePracticeFromPas_Existing()
 	{
-		$practice = new Practice;
-		$assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_practice));
-		$assignment->expects($this->any())->method('save')->will($this->returnValue(true));
-		$this->service->updatePracticeFromPas($practice, $assignment);
-
+		$practice = $this->createPractice();
 		$this->pas_practice->TEL_1 = '09876543210';
-		$this->assertSame($practice, $this->service->updatePracticeFromPas($practice, $assignment));
+		$this->assertSame($practice, $this->service->updatePracticeFromPas($practice, $this->practice_assignment));
 
-		$practice = Practice::model()->noPas()->findByPk($assignment->internal_id);
+		$practice = $this->fetchPractice();
 		$this->assertEquals('09876543210', $practice->phone);
 		$this->assertEquals('09876543210', $practice->contact->primary_phone);
 	}
 
 	public function testUpdatePracticeFromPas_Existing_AddressGone()
 	{
-		$practice = new Practice;
-		$assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_practice));
-		$assignment->expects($this->any())->method('save')->will($this->returnValue(true));
-		$this->service->updatePracticeFromPas($practice, $assignment);
-
+		$practice = $this->createPractice();
 		$this->pas_practice->ADD_NAM = $this->pas_practice->ADD_NUM = $this->pas_practice->ADD_ST = $this->pas_practice->ADD_DIS = $this->pas_practice->ADD_TWN = $this->pas_practice->ADD_CTY = $this->pas_practice->PC = '';
-		$this->service->updatePracticeFromPas($practice, $assignment);
+		$this->service->updatePracticeFromPas($practice, $this->practice_assignment);
 
-		$practice = Practice::model()->noPas()->findByPk($assignment->internal_id);
+		$practice = $this->fetchPractice();
 		$this->assertNull($practice->contact->address);
 	}
 
 	public function testUpdatePracticeFromPas_Existing_Removed()
 	{
-		$practice = new Practice;
-		$assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_practice));
-		$assignment->expects($this->any())->method('save')->will($this->returnValue(true));
-		$this->service->updatePracticeFromPas($practice, $assignment);
-
-		$assignment->external = null;
-		$assignment->expects($this->once())->method('delete');
-		$this->assertNull($this->service->updatePracticeFromPas($practice, $assignment));
+		$practice = $this->createPractice();
+		$this->practice_assignment->external = null;
+		$this->practice_assignment->expects($this->once())->method('delete');
+		$this->assertNull($this->service->updatePracticeFromPas($practice, $this->practice_assignment));
 	}
 
 	public function testUpdatePatientFromPas_New()
 	{
 		$patient = new Patient;
-		$assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_patient));
-		$assignment->expects($this->any())->method('save')->will($this->returnValue(true));
 
-		$gp_assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_gp, 'internal' => new Gp));
-		$gp_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
-		$gp_assignment->expects($this->any())->method('save')->will($this->returnValue(true));
+		$this->gp_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
+		$this->practice_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
 
-		$practice_assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_practice, 'internal' => new Practice));
-		$practice_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
-		$practice_assignment->expects($this->any())->method('save')->will($this->returnValue(true));
+		$this->service->updatePatientFromPas($patient, $this->patient_assignment);
 
-		$this->assign->expects($this->any())->method('findByExternal')->will($this->returnValueMap(
-				array(array('PAS_Gp', '13', $gp_assignment), array('PAS_Practice', '67890', $practice_assignment))
-		));
-
-		$this->service->updatePatientFromPas($patient, $assignment);
-
-		$patient = Patient::model()->noPas()->findByPk($assignment->internal_id);
+		$patient = $this->fetchPatient();
 		$this->assertEquals('012345', $patient->pas_key);
 		$this->assertEquals('012345', $patient->hos_num);
 		$this->assertEquals('123456789', $patient->nhs_num);
 		$this->assertEquals('1974-08-09', $patient->dob);
 		$this->assertNull($patient->date_of_death);
-		$this->assertEquals($gp_assignment->internal_id, $patient->gp_id);
-		$this->assertEquals($practice_assignment->internal_id, $patient->practice_id);
+		$this->assertEquals($this->gp_assignment->internal_id, $patient->gp_id);
+		$this->assertEquals($this->practice_assignment->internal_id, $patient->practice_id);
 		$this->assertEquals(3, $patient->ethnic_group_id);
 	}
 
 	public function testUpdatePatientFromPas_Existing_Removed()
 	{
-		$patient = new Patient;
-		$assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_patient));
-		$assignment->expects($this->any())->method('save')->will($this->returnValue(true));
-
-		$gp_assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_gp, 'internal' => new Gp));
-		$gp_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
-		$gp_assignment->expects($this->any())->method('save')->will($this->returnValue(true));
-
-		$practice_assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_practice, 'internal' => new Practice));
-		$practice_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
-		$practice_assignment->expects($this->any())->method('save')->will($this->returnValue(true));
-
-		$this->assign->expects($this->any())->method('findByExternal')->will($this->returnValueMap(
-				array(array('PAS_Gp', '13', $gp_assignment), array('PAS_Practice', '67890', $practice_assignment))
-		));
-
-		$this->service->updatePatientFromPas($patient, $assignment);
-
-		$assignment->external = null;
-		$this->service->updatePatientFromPas($patient, $assignment);
-		$this->assertEquals(1, $assignment->missing_from_pas);
+		$patient = $this->createPatient();
+		$this->patient_assignment->external = null;
+		$this->service->updatePatientFromPas($patient, $this->patient_assignment);
+		$this->assertEquals(1, $this->patient_assignment->missing_from_pas);
 	}
 
 	public function testUpdatePatientFromPas_Existing_GpRemoved()
 	{
-		$patient = new Patient;
-		$assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_patient));
-		$assignment->expects($this->any())->method('save')->will($this->returnValue(true));
+		$patient = $this->createPatient();
+		$this->gp_assignment->external = null;
+		$this->gp_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
+		$this->service->updatePatientFromPas($patient, $this->patient_assignment);
 
-		$gp_assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_gp, 'internal' => new Gp));
-		$gp_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
-		$gp_assignment->expects($this->any())->method('save')->will($this->returnValue(true));
-
-		$practice_assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_practice, 'internal' => new Practice));
-		$practice_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
-		$practice_assignment->expects($this->any())->method('save')->will($this->returnValue(true));
-
-		$this->assign->expects($this->any())->method('findByExternal')->will($this->returnValueMap(
-				array(array('PAS_Gp', '13', $gp_assignment), array('PAS_Practice', '67890', $practice_assignment))
-		));
-
-		$this->service->updatePatientFromPas($patient, $assignment);
-
-		$gp_assignment->external = null;
-		$this->service->updatePatientFromPas($patient, $assignment);
-
-		$patient = Patient::model()->noPas()->findByPk($assignment->internal_id);
+		$patient = $this->fetchPatient();
 		$this->assertNull($patient->gp);
 	}
 
 	public function testUpdatePatientFromPas_Existing_PracticeRemoved()
 	{
-		$patient = new Patient;
-		$assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_patient));
-		$assignment->expects($this->any())->method('save')->will($this->returnValue(true));
+		$patient = $this->createPatient();
+		$this->practice_assignment->external = null;
+		$this->practice_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
+		$this->service->updatePatientFromPas($patient, $this->patient_assignment);
 
-		$gp_assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_gp, 'internal' => new Gp));
-		$gp_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
-		$gp_assignment->expects($this->any())->method('save')->will($this->returnValue(true));
-
-		$practice_assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_practice, 'internal' => new Practice));
-		$practice_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
-		$practice_assignment->expects($this->any())->method('save')->will($this->returnValue(true));
-
-		$this->assign->expects($this->any())->method('findByExternal')->will($this->returnValueMap(
-				array(array('PAS_Gp', '13', $gp_assignment), array('PAS_Practice', '67890', $practice_assignment))
-		));
-
-		$this->service->updatePatientFromPas($patient, $assignment);
-
-		$practice_assignment->external = null;
-		$this->service->updatePatientFromPas($patient, $assignment);
-
-		$patient = Patient::model()->noPas()->findByPk($assignment->internal_id);
+		$patient = $this->fetchPatient();
 		$this->assertNull($patient->practice);
 	}
 
 	public function testUpdatePatientFromPas_Existing_GpAndPracticeRemoved()
 	{
-		$patient = new Patient;
-		$assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_patient));
-		$assignment->expects($this->any())->method('save')->will($this->returnValue(true));
+		$patient = $this->createPatient();
+		$this->gp_assignment->external = null;
+		$this->gp_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
+		$this->practice_assignment->external = null;
+		$this->practice_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
+		$this->service->updatePatientFromPas($patient, $this->patient_assignment);
 
-		$gp_assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_gp, 'internal' => new Gp));
-		$gp_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
-		$gp_assignment->expects($this->any())->method('save')->will($this->returnValue(true));
-
-		$practice_assignment = ComponentStubGenerator::generate('PasAssignment', array('id' => 42, 'external_id' => 43, 'external' => $this->pas_practice, 'internal' => new Practice));
-		$practice_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
-		$practice_assignment->expects($this->any())->method('save')->will($this->returnValue(true));
-
-		$this->assign->expects($this->any())->method('findByExternal')->will($this->returnValueMap(
-				array(array('PAS_Gp', '13', $gp_assignment), array('PAS_Practice', '67890', $practice_assignment))
-		));
-
-		$this->service->updatePatientFromPas($patient, $assignment);
-
-		$gp_assignment->external = null;
-		$practice_assignment->external = null;
-		$this->service->updatePatientFromPas($patient, $assignment);
-
-		$patient = Patient::model()->noPas()->findByPk($assignment->internal_id);
+		$patient = $this->fetchPatient();
 		$this->assertNull($patient->gp);
 		$this->assertNull($patient->practice);
+	}
+
+	private function createGp()
+	{
+		return $this->service->updateGpFromPas(new Gp, $this->gp_assignment);
+	}
+
+	private function createPractice()
+	{
+		return $this->service->updatePracticeFromPas(new Practice, $this->practice_assignment);
+	}
+
+	private function createPatient()
+	{
+		$this->service->updatePatientFromPas(new Patient, $this->patient_assignment);
+		return $this->fetchPatient();
+	}
+
+	private function fetchGp()
+	{
+		return Gp::model()->noPas()->findByPk($this->gp_assignment->internal_id);
+	}
+
+	private function fetchPractice()
+	{
+		return Practice::model()->noPas()->findByPk($this->practice_assignment->internal_id);
+	}
+
+	private function fetchPatient()
+	{
+		return Patient::model()->noPas()->findByPk($this->patient_assignment->internal_id);
 	}
 }
