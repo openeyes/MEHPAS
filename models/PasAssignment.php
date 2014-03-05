@@ -106,7 +106,10 @@ class PasAssignment extends BaseActiveRecord
 		if (!$record) return null;
 
 		$this->lock($record->external_type, $record->external_id);
-		if (!$record->refresh()) return null;
+		if (!$record->refresh()) {
+			$record->unlock();
+			return null;
+		}
 
 		return $record;
 	}

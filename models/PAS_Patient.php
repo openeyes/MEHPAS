@@ -144,6 +144,7 @@ class PAS_Patient extends MultiActiveRecord
 				'numbers' => array(self::HAS_MANY, 'PAS_PatientNumber', 'RM_PATIENT_NO'),
 				'nhs_number' => array(self::HAS_ONE, 'PAS_PatientNumber', 'RM_PATIENT_NO', 'on' => '"nhs_number"."NUM_ID_TYPE" = \'NHS\''),
 				'hos_number' => array(self::HAS_ONE, 'PAS_PatientNumber', 'RM_PATIENT_NO', 'on' => 'REGEXP_LIKE("hos_number"."NUM_ID_TYPE", \'[[:digit:]]\')'),
+				'case_notes' => array(self::HAS_MANY, 'PAS_CaseNote', 'X_CN', 'on' => "REGEXP_LIKE(ngroup, '[[:digit:]]')"),
 				'addresses' => array(self::HAS_MANY, 'PAS_PatientAddress', 'RM_PATIENT_NO',
 						// DATE_START is the tiebreaker
 						'order' => 'DATE_START DESC',
@@ -238,4 +239,24 @@ class PAS_Patient extends MultiActiveRecord
 		));
 	}
 
+	/**
+	 * @return string|null
+	 */
+	public function getPrimaryHosNum()
+	{
+		$hos_num = $this->hos_number;
+		return $hos_num ? ($hos_num->NUM_ID_TYPE . $hos_num->NUMBER_ID) : null;
+	}
+
+	/**
+	 * @return array
+	 */
+	public function getAllHosNums()
+	{
+		$hos_nums = array($this->getPrimaryHosNum());
+		foreach ($this->case_notes as $case_note) {
+			$hos_nums[] = $case_note->C_CN;
+		}
+		return array_unique($hos_nums);
+	}
 }
