@@ -893,7 +893,7 @@ class PasService
 			foreach ($results as $result) {
 				// See if the patient is in openeyes, if not then fetch from PAS
 				//Yii::log("Fetching assignment for patient: rm_patient_no:" . $result['RM_PATIENT_NO'], 'trace');
-				$this->createOrUpdatePatient($result['RM_PATIENT_NO'], $result['NUM_ID_TYPE'] . $result['NUMBER_ID']);
+				$this->createOrUpdatePatient($result['RM_PATIENT_NO']);
 			}
 		} catch (CDbException $e) {
 			$this->handlePASException($e);
@@ -905,10 +905,34 @@ class PasService
 	 * @param string $rm_patient_no
 	 * @param string $hos_num
 	 */
-	protected function createOrUpdatePatient($rm_patient_no, $hos_num)
+	public function createOrUpdatePatient($rm_patient_no)
 	{
 		//Yii::log('Getting assignment','trace');
 		$assignment = $this->assign->findByExternal('PAS_Patient', $rm_patient_no);
+
+		if ($assignment->isNewRecord && ($patient = $this->checkForMergedPatient($assignment->external))) {
+			$assignment->unlock();
+
+			$old_assignment = $this->assign->findByInternal('Patient', $patient->id);
+			if ($old_assignment) {  // Not a problem if missing, another process might have deleted it
+				$this->updatePatientFromPas($patient, $old_assignment);
+
+				if (!$old_assignment->missing_from_pas) {
+					throw new Exception("Duplicate patient in PAS?  Patient ID: {$patient->id}, rm_patient_nos: {$old_assignment->external_id}, {$assignment->external_id}");
+				}
+
+				Yii::app()->user->setFlash('warning.pas_record_missing', null);
+
+				$old_assignment->delete();
+				$old_assignment->unlock();
+			}
+
+			// Re-obtain lock
+			$assignment = $this->assign->findByExternal('PAS_Patient', $rm_patient_no);
+			if ($assignment->isNewRecord) {  // ok, nobody else has written to it in the meantime
+				$assignment->internal_id = $patient->id;
+			}
+		}
 
 		if ($assignment->isStale()) {
 			$patient = $assignment->internal;
@@ -920,6 +944,27 @@ class PasService
 			}
 		}
 		$assignment->unlock();
+	}
+
+	protected function checkForMergedPatient(PAS_Patient $pas_patient)
+	{
+		// Look for existing patients with a matching hos_num
+		$crit = new CDbCriteria;
+		$crit->addInCondition('hos_num', $pas_patient->getAllHosNums());
+		$crit->order = 'last_modified_date desc';
+		$patient = Patient::model()->noPas()->find($crit);
+		if (!$patient) return null;
+
+		// Sanity checks
+		if (strtotime($patient->dob) != strtotime($pas_patient->DATE_OF_BIRTH) ||
+			$patient->contact->last_name != $this->fixCase($pas_patient->name->SURNAME_ID)) {
+			Yii::log("Rejected patient ID {$patient->id} for merge with rm_patient_no {$pas_patient->RM_PATIENT_NO} after sanity checks", "trace");
+			return null;
+		}
+
+		Yii::log("Selected patient ID {$patient->id} for merge with rm_patient_no {$pas_patient->RM_PATIENT_NO}", "trace");
+
+		return $patient;
 	}
 
 	/**

@@ -161,6 +161,8 @@ class PasServiceTest extends CDbTestCase
 		$this->service = new PasService($this->assign);
 		$this->service->setAvailable();
 
+		Yii::app()->params['mehpas_legacy_letters'] = false;
+
 		parent::setUp();
 	}
 
@@ -318,6 +320,74 @@ class PasServiceTest extends CDbTestCase
 		$patient = $this->fetchPatient();
 		$this->assertNull($patient->gp);
 		$this->assertNull($patient->practice);
+	}
+
+	public function testCreateOrUpdatePatient_Create()
+	{
+		$this->pas_patient->expects($this->any())->method('getAllHosNums')->will($this->returnValue(array('012345')));
+		$this->patient_assignment->isNewRecord = true;
+		$this->patient_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
+
+		$this->service->createOrUpdatePatient('54374');
+
+		$patient = $this->fetchPatient();
+		$this->assertEquals('012345', $patient->pas_key);
+		$this->assertEquals('012345', $patient->hos_num);
+		$this->assertEquals('123456789', $patient->nhs_num);
+		$this->assertEquals('1974-08-09', $patient->dob);
+		$this->assertNull($patient->date_of_death);
+		$this->assertEquals($this->gp_assignment->internal_id, $patient->gp_id);
+		$this->assertEquals($this->practice_assignment->internal_id, $patient->practice_id);
+		$this->assertEquals(3, $patient->ethnic_group_id);
+	}
+
+	public function testCreateOrUpdatePatient_Update()
+	{
+		$this->createPatient();
+
+		$this->pas_patient->expects($this->any())->method('getAllHosNums')->will($this->returnValue(array('012345')));
+		$this->patient_assignment->isNewRecord = false;
+		$this->patient_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
+
+		$this->pas_patient->name->SURNAME_ID = 'FOO';
+
+		$this->service->createOrUpdatePatient('54374');
+
+		$patient = $this->fetchPatient();
+		$this->assertEquals('Foo', $patient->contact->last_name);
+	}
+
+	public function testCreateOrUpdatePatient_Merge()
+	{
+		$patient = $this->createPatient();
+
+		$old_assignment = ComponentStubGenerator::generate(
+			'PasAssignment',
+			array(
+				'external_type' => 'PAS_Patient',
+				'external_id' => '54734',
+				'external' => null,
+				'internal_type' => 'Patient',
+				'internal_id' => $patient->id,
+				'internal' => $patient,
+			)
+		);
+		$this->assign->expects($this->any())->method('findByInternal')->with('Patient', $patient->id)->will($this->returnValue($old_assignment));
+
+		$this->pas_patient->expects($this->any())->method('getAllHosNums')->will($this->returnValue(array('056789', '012345')));
+		$this->pas_patient->RM_PATIENT_NO = '67894';
+		$this->pas_patient->hos_number->NUMBER_ID = '56789';
+		$this->patient_assignment->external_id = '67894';
+		$this->patient_assignment->internal_id = null;
+		$this->patient_assignment->isNewRecord = true;
+		$this->patient_assignment->internal = $patient;
+		$this->patient_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
+
+		$this->service->createOrUpdatePatient('54374');
+
+		$this->assertEquals($this->patient_assignment->internal_id, $patient->id);
+		$patient = $this->fetchPatient();
+		$this->assertEquals('056789', $patient->hos_num);
 	}
 
 	private function createGp()
