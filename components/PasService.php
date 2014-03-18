@@ -609,15 +609,14 @@ class PasService
 				}
 				CommissioningBodyPatientAssignment::model()->deleteByPk($other_ccgs);
 
-				/* FIXME - Disabling due to errors and currently unused
 				$pas_referrals = PAS_Referral::model()->findAll('X_CN=?',array($pas_patient['RM_PATIENT_NO']));
+				Yii::log('Got ' . count($pas_referrals) . ' referrals for patient');
 
 				if ($pas_referrals) {
 					foreach ($pas_referrals as $pasReferral) {
 						$this->updateReferralFromPAS($patient,$pasReferral);
 					}
 				}
-				*/
 
 				// Advisory locks cannot be nested so release patient lock here
 				$assignment->unlock();
@@ -701,11 +700,19 @@ class PasService
 		}
 	}
 
+	/*
+	* Use the PASReferral for the Patient to create a core Referal object (if it's not already created) 
+	* and update the details of it if anything has changed
+	*
+	* @param Patient $patient
+	* @param PasReferral $pasReferral
+	*/
 	public function updateReferralFromPAS($patient,$pasReferral) {
 		if (!$referralType = ReferralType::model()->find('code=?',array($pasReferral['SRCE_REF']))) {
 			if (!$pasReferralType = PAS_ReferralType::model()->find('ULNKEY=? and code=?',array('SREF',$pasReferral['SRCE_REF']))) {
 				throw new Exception("PAS referral apparently created with a non-existant code: {$pasReferral['REFNO']} / {$pasReferral['SRCE_REF']}");
 			}
+			// create a new core Referral type
 			$referralType = new ReferralType;
 			$referralType->code = $pasReferral['SRCE_REF'];
 			$referralType->name = $pasReferralType['DESCRIPT'];
@@ -729,6 +736,12 @@ class PasService
 		}
 
 		$referral->referral_type_id = $referralType->id;
+		if ($pasReferral['TIMEX']) {
+			$referral->clock_start = $pasReferral['DATEX'] . " " . $pasReferral['TIMEX'];
+		}
+		else {
+			$referral->clock_start = $pasReferral['DATEX'] . " 00:01";
+		}
 		$referral->received_date = $pasReferral['DT_REC'];
 		$referral->closed_date = $pasReferral['DT_CLOSE'] ? $pasReferral['DT_CLOSE'] : null;
 		$referral->referrer = $pasReferral['REF_PERS'];
@@ -757,6 +770,10 @@ class PasService
 				}
 			}
 
+			/** Referrals reintroduced for RTT - decided that the GP relation information was not imprtant and could be removed
+			for now (the problem being that GPs are routinely cleared up, so we would need to determine some sort of soft delete
+			mechanism for them for the referral relations to be maintained
+			
 			if (!$referral->firm_id) {
 				if (!$gp = Gp::model()->find('obj_prof=?',array($referral->referrer))) {
 					// See if this is a GP in PAS
@@ -773,6 +790,7 @@ class PasService
 					$referral->gp_id = $gp->id;
 				}
 			}
+			*/
 		}
 
 		if (!$referral->save()) {
