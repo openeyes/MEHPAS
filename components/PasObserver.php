@@ -39,14 +39,15 @@ class PasObserver
 			}
 		}
 
-		// Check if stale
-		$pas_service = new PasService();
+		$pas_service = PasService::load();
 		if ($pas_service->isAvailable()) {
 			$assignment = PasAssignment::model()->findByInternal('Patient', $patient->id);
-			if ($assignment && $assignment->isStale()) {
-				// Assignment is stale (and locked ready for update)
-				Yii::log('Patient details stale', 'trace');
-				$pas_service->updatePatientFromPas($patient, $assignment);
+			if ($assignment) {
+				if ($assignment->isStale()) {
+					Yii::log('Patient details stale', 'trace');
+					$pas_service->updatePatientFromPas($patient, $assignment);
+				}
+				$assignment->unlock();
 			} elseif (!$assignment) {
 				// Error, missing assignment
 				Yii::log("Cannot find Patient assignment|id: {$patient->id}, hos_num: {$patient->hos_num}", 'warning', 'application.action');
@@ -72,6 +73,7 @@ class PasObserver
 	public function updateGpFromPas($params)
 	{
 		$gp = $params['gp'];
+		if (!$gp->use_pas) return;
 
 		// Check to see if we are buffering updates
 		if (PHP_SAPI != 'cli') {
@@ -83,20 +85,19 @@ class PasObserver
 
 		// Check if stale
 		$assignment = PasAssignment::model()->findByInternal('Gp', $gp->id);
-		if ($assignment && $assignment->isStale()) {
-
-			// Assignment is stale (and locked ready for update)
-			Yii::log('GP details stale', 'trace');
-			$pas_service = new PasService();
-			if ($pas_service->isAvailable()) {
-				$pas_service->updateGpFromPas($gp, $assignment);
-			} else {
-				$pas_service->flashPasDown();
-				$assignment->unlock();
+		if ($assignment) {
+			if ($assignment->isStale()) {
+				Yii::log('GP details stale', 'trace');
+				$pas_service = PasService::load();
+				if ($pas_service->isAvailable()) {
+					$pas_service->updateGpFromPas($gp, $assignment);
+				} else {
+					$pas_service->flashPasDown();
+				}
 			}
+			$assignment->unlock();
 
 		} elseif (!$assignment) {
-
 			// Error, missing assignment
 			Yii::log("Cannot find Gp assignment|id: {$gp->id}, obj_prof: {$gp->obj_prof}", 'warning', 'application.action');
 			if (get_class(Yii::app()) == 'CConsoleApplication') {
@@ -117,6 +118,7 @@ class PasObserver
 	public function updatePracticeFromPas($params)
 	{
 		$practice = $params['practice'];
+		if (!$practice->use_pas) return;
 
 		// Check to see if we are buffering updates
 		if (PHP_SAPI != 'cli') {
@@ -128,17 +130,19 @@ class PasObserver
 
 		// Check if stale
 		$assignment = PasAssignment::model()->findByInternal('Practice', $practice->id);
-		if ($assignment && $assignment->isStale()) {
+		if ($assignment) {
 
-			// Assignment is stale (and locked ready for update)
-			Yii::log('Practice details stale', 'trace');
-			$pas_service = new PasService();
-			if ($pas_service->isAvailable()) {
-				$pas_service->updatePracticeFromPas($practice, $assignment);
-			} else {
-				$pas_service->flashPasDown();
-				$assignment->unlock();
+			if ($assignment->isStale()) {
+				Yii::log('Practice details stale', 'trace');
+				$pas_service = PasService::load();
+				if ($pas_service->isAvailable()) {
+					$pas_service->updatePracticeFromPas($practice, $assignment);
+				} else {
+					$pas_service->flashPasDown();
+				}
 			}
+			$assignment->unlock();
+
 		} elseif (!$assignment) {
 
 			// Error, missing assignment
@@ -158,7 +162,7 @@ class PasObserver
 	 */
 	public function searchPas($params)
 	{
-		$pas_service = new PasService();
+		$pas_service = PasService::load();
 		if ($pas_service->isAvailable()) {
 			$data = $params['params'];
 			if ($params['patient']->hos_num) {
@@ -166,7 +170,7 @@ class PasObserver
 			} else {
 				$data['nhs_num'] = $params['patient']->nhs_num;
 			}
-			$params['criteria'] = $pas_service->search($data, $params['params']['pageSize'], $params['params']['currentPage']);
+			$pas_service->search($data, $params['params']['pageSize'], $params['params']['currentPage']);
 		} else {
 			$pas_service->flashPasDown();
 		}
@@ -180,7 +184,7 @@ class PasObserver
 	public function fetchReferralFromPas($params)
 	{
 		return false;
-		$pas_service = new PasService();
+		$pas_service = PasService::load();
 		if ($pas_service->available) {
 			$pas_service->fetchReferral($params['episode']);
 		} else {
@@ -207,7 +211,7 @@ class PasObserver
 		Yii::log('Processing PAS buffer','trace');
 		Yii::app()->mehpas_buffer->setBuffering(false);
 		/*
-		$pas_service = new PasService();
+		$pas_service = PasService::load();
 		if ($pas_service->isAvailable()) {
 			$pas_service->updatePatientsFromPas(Yii::app()->mehpas_buffer->getPatients());
 			$pas_service->updatePatientsFromPas(Yii::app()->mehpas_buffer->getPractices());

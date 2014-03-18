@@ -19,7 +19,24 @@
 
 class PasService
 {
+	/**
+	 * @return PasService
+	 */
+	static public function load()
+	{
+		return new self(PasAssignment::model());
+	}
+
+	protected $assign;
 	protected $available;
+
+	/**
+	 * @param PasAssignment $assign PasAssignment static model
+	 */
+	public function __construct(PasAssignment $assign)
+	{
+		$this->assign = $assign;
+	}
 
 	/**
 	 * Is PAS enabled and up?
@@ -39,6 +56,14 @@ class PasService
 			}
 		}
 		return $this->available;
+	}
+
+	/**
+	 * @param boolean $available
+	 */
+	public function setAvailable($available = true)
+	{
+		$this->available = $available;
 	}
 
 	/**
@@ -247,7 +272,7 @@ class PasService
 			}
 		} else {
 			// Address doesn't look useful, so we'll delete it
-			if ($address = $commissioning_body->contact->address) {
+			if ($address = $contact->address) {
 				$address->delete();
 				$address = null;
 			}
@@ -327,7 +352,7 @@ class PasService
 						$address->country_id = 1;
 					} else {
 						// Address doesn't look useful, so we'll delete it
-						if ($address = $practice->contact->address) {
+						if ($address = $contact->address) {
 							$address->delete();
 							$address = null;
 						}
@@ -350,7 +375,7 @@ class PasService
 					$criteria->condition = 'practice_id = :practice_id AND commissioning_body_type.shortname = :commissioning_body_type';
 					$criteria->join = 'JOIN commissioning_body ON commissioning_body.id = t.commissioning_body_id JOIN commissioning_body_type ON commissioning_body_type.id = commissioning_body.commissioning_body_type_id';
 					$criteria->params = array(':practice_id' => $practice->id, ':commissioning_body_type' => 'CCG');
-					if($commissioning_body) {
+					if(isset($commissioning_body)) {
 						$criteria->condition .= ' AND commissioning_body_id != :id';
 						$criteria->params[':id'] = $commissioning_body->id;
 					}
@@ -439,7 +464,7 @@ class PasService
 		$criteria = new CDbCriteria();
 		$criteria->addInCondition('internal_id', $patient_ids);
 		$criteria->compare('internal_type', 'Patient');
-		$assignments = PasAssignment::model()->findAll($criteria);
+		$assignments = $this->assign->findAll($criteria);
 		$rm_patient_numbers = array();
 		foreach ($assignments as $assignment) {
 			$rm_patient_numbers[] = $assignment->external_id;
@@ -459,11 +484,6 @@ class PasService
 	{
 		if (!$this->isAvailable()) return;
 
-		/**
-		 * FIXME: In periods of heavy load, the date (soft) locking system will fail and allow duplicate records to be created.
-		 * We should introduce transactions to the code below so that this can be rolled back. Hopefully this module will
-		 * be replaced before that is necessary.
-		 */
 		try {
 			Yii::log("Pulling data from PAS for Patient: Patient->id: {$patient->id}, PasAssignment->id: {$assignment->id}, PasAssignment->external_id: {$assignment->external_id}", 'trace');
 			if (!$assignment->external_id) {
@@ -495,103 +515,12 @@ class PasService
 
 				$patient->attributes = $patient_attrs;
 
-				// Get latest GP mapping from PAS
-				$pas_patient_gp = $pas_patient->PatientGp;
-				if ($pas_patient_gp) {
-					Yii::log("Patient has GP record: PAS_PatientGps->GP_ID: {$pas_patient_gp->GP_ID}", 'trace');
-
-					// Check if GP is not on our block list
-					if ($this->isBadGp($pas_patient_gp->GP_ID)) {
-						Yii::log("GP on blocklist, ignoring", 'trace');
-						$patient->gp_id = null;
-					} else {
-						// Check if the GP is in openeyes
-						Yii::log("Checking if GP is in openeyes", 'trace');
-						$gp = Gp::model()->findByAttributes(array('obj_prof' => $pas_patient_gp->GP_ID));
-						if (!$gp) {
-							// GP not in openeyes, pulling from PAS
-							Yii::log("GP not in openeyes, importing", 'trace');
-							$gp = new Gp();
-							$gp_assignment = new PasAssignment();
-							$gp_assignment->internal_type = 'Gp';
-							$gp_assignment->external_id = $pas_patient_gp->GP_ID;
-							$gp_assignment->external_type = 'PAS_Gp';
-							$gp = $this->updateGpFromPas($gp, $gp_assignment);
-						} elseif (!$gp->refresh()) {
-							// GP has been deleted (probably by an observer)
-							// FIXME: There must be a better way of dealing with this
-							Yii::log("GP was deleted after find", 'trace');
-							$gp = null;
-						}
-
-						// Update/set patient's GP
-						$gp_id = ($gp) ? $gp->id : null;
-						if ($patient->gp_id != $gp_id) {
-							Yii::log("Patient's GP changed", 'trace');
-							$patient->gp_id = $gp_id;
-						} else {
-							Yii::log("Patient's GP has not changed", 'trace');
-						}
-
-					}
-					if (!$patient->gp_id && $pas_patient_gp->GP_ID) {
-						Yii::log("Patient GP invalid or not found in PAS|id: {$patient->id}, hos_num: {$patient->hos_num}, gp_id: {$pas_patient_gp->GP_ID}", 'warning', 'application.action');
-					} elseif (!$patient->gp_id) {
-						Yii::log("Patient has no GP|id: {$patient->id}, hos_num: {$patient->hos_num}", 'warning', 'application.action');
-					}
-
-					// Check if the Practice is in openeyes
-					Yii::log("Checking if Practice is in openeyes: PAS_PatientGps->PRACTICE_CODE: {$pas_patient_gp->PRACTICE_CODE}", 'trace');
-					$practice = Practice::model()->findByAttributes(array('code' => $pas_patient_gp->PRACTICE_CODE));
-					if (!$practice) {
-						// Practice not in openeyes, pulling from PAS
-						Yii::log("Practice not in openeyes", 'trace');
-						$practice = new Practice();
-						$practice_assignment = new PasAssignment();
-						$practice_assignment->internal_type = 'Practice';
-						$practice_assignment->external_id = $pas_patient_gp->PRACTICE_CODE;
-						$practice_assignment->external_type = 'PAS_Practice';
-						$practice = $this->updatePracticeFromPas($practice, $practice_assignment);
-					} elseif (!$practice->refresh()) {
-						// Practice has been deleted (probably by an observer)
-						// FIXME: There must be a better way of dealing with this
-						Yii::log("Practice was deleted after find", 'trace');
-						$practice = null;
-					}
-
-					// Update/set patient's practice
-					$practice_id = ($practice) ? $practice->id : null;
-					if ($patient->practice_id != $practice_id) {
-						Yii::log("Patient's practice changed", 'trace');
-						$patient->practice_id = $practice_id;
-					} else {
-						Yii::log("Patient's practice has not changed", 'trace');
-					}
-
-					if (!$patient->practice_id && $pas_patient_gp->PRACTICE_CODE) {
-						Yii::log("Patient Practice invalid or not found in PAS|id: {$patient->id}, hos_num: {$patient->hos_num}, practice_code: {$pas_patient_gp->PRACTICE_CODE}", 'warning', 'application.action');
-					} elseif (!$patient->practice_id) {
-						Yii::log("Patient has no Practice|id: {$patient->id}, hos_num: {$patient->hos_num}", 'warning', 'application.action');
-					}
-
-				} else {
-					Yii::log("Patient has no GP/practice in PAS", 'trace');
-					Yii::log("Patient has no GP or Practice|id: {$patient->id}, hos_num: {$patient->hos_num}", 'warning', 'application.action');
-				}
-
-				if (!$contact = $patient->contact) {
-					$contact = new Contact;
-					if (!$contact->save()) {
-						throw new Exception("Unable to save patient contact: ".print_r($contact->getErrors(),true));
-					}
-					$patient->contact_id = $contact->id;
-				}
-
 				// Save
 				if (!$patient->save()) {
 					throw new CException('Cannot save patient: '.print_r($patient->getErrors(),true));
 				}
 
+				$contact = $patient->contact;
 				$contact->title = $this->fixCase($pas_patient->name->TITLE);
 				$contact->first_name = ($pas_patient->name->NAME1) ? $this->fixCase($pas_patient->name->NAME1) : '(UNKNOWN)';
 				$contact->last_name = $this->fixCase($pas_patient->name->SURNAME_ID);
@@ -610,7 +539,6 @@ class PasService
 
 				// Addresses
 				if ($pas_patient->addresses) {
-
 					// Matching addresses for update is tricky cos we don't have a primary key on the pas address table,
 					// so we need to keep track of patient address ids as we go
 					$matched_address_ids = array();
@@ -649,7 +577,6 @@ class PasService
 						Yii::log("$orphaned_addresses orphaned patient addresses were deleted", 'trace');
 					}
 					Yii::log("Patient has $matched_addresses valid addresses", 'trace');
-
 				}
 
 				// CCG assignment
@@ -692,8 +619,82 @@ class PasService
 				}
 				*/
 
+				// Advisory locks cannot be nested so release patient lock here
+				$assignment->unlock();
+
+				// Get latest GP mapping from PAS
+				$pas_patient_gp = $pas_patient->PatientGp;
+				if ($pas_patient_gp) {
+					Yii::log("Patient has GP record: PAS_PatientGps->GP_ID: {$pas_patient_gp->GP_ID}", 'trace');
+
+					// Check if GP is not on our block list
+					if ($this->isBadGp($pas_patient_gp->GP_ID)) {
+						Yii::log("GP on blocklist, ignoring", 'trace');
+						$patient->gp_id = null;
+					} else {
+						$gp_assignment = $this->assign->findByExternal('PAS_Gp', $pas_patient_gp->GP_ID);
+						$gp = $gp_assignment->internal;
+						if ($gp_assignment->isStale()) {
+							$gp = $this->updateGpFromPas($gp, $gp_assignment);
+						}
+						$gp_assignment->unlock();
+
+						// Update/set patient's GP
+						$gp_id = ($gp) ? $gp->id : null;
+						if ($patient->gp_id != $gp_id) {
+							Yii::log("Patient's GP changed", 'trace');
+							$patient->gp_id = $gp_id;
+						} else {
+							Yii::log("Patient's GP has not changed", 'trace');
+						}
+
+					}
+					if (!$patient->gp_id && $pas_patient_gp->GP_ID) {
+						Yii::log("Patient GP invalid or not found in PAS|id: {$patient->id}, hos_num: {$patient->hos_num}, gp_id: {$pas_patient_gp->GP_ID}", 'warning', 'application.action');
+					} elseif (!$patient->gp_id) {
+						Yii::log("Patient has no GP|id: {$patient->id}, hos_num: {$patient->hos_num}", 'warning', 'application.action');
+					}
+
+					// Check if the Practice is in openeyes
+					Yii::log("Checking if Practice is in openeyes: PAS_PatientGps->PRACTICE_CODE: {$pas_patient_gp->PRACTICE_CODE}", 'trace');
+					$practice_assignment = $this->assign->findByExternal('PAS_Practice', $pas_patient_gp->PRACTICE_CODE);
+					$practice = $practice_assignment->internal;
+					if ($practice_assignment->isStale()) {
+						$practice = $this->updatePracticeFromPas($practice, $practice_assignment);
+					}
+					$practice_assignment->unlock();
+
+					// Update/set patient's practice
+					$practice_id = ($practice) ? $practice->id : null;
+					if ($patient->practice_id != $practice_id) {
+						Yii::log("Patient's practice changed", 'trace');
+						$patient->practice_id = $practice_id;
+					} else {
+						Yii::log("Patient's practice has not changed", 'trace');
+					}
+
+					if (!$patient->practice_id && $pas_patient_gp->PRACTICE_CODE) {
+						Yii::log("Patient Practice invalid or not found in PAS|id: {$patient->id}, hos_num: {$patient->hos_num}, practice_code: {$pas_patient_gp->PRACTICE_CODE}", 'warning', 'application.action');
+					} elseif (!$patient->practice_id) {
+						Yii::log("Patient has no Practice|id: {$patient->id}, hos_num: {$patient->hos_num}", 'warning', 'application.action');
+					}
+
+					if (!$patient->save()) {
+						throw new CException('Cannot save patient: '.print_r($patient->getErrors(),true));
+					}
+				} else {
+					Yii::log("Patient has no GP/practice in PAS", 'trace');
+					Yii::log("Patient has no GP or Practice|id: {$patient->id}, hos_num: {$patient->hos_num}", 'warning', 'application.action');
+				}
 			} else {
-				Yii::log('Patient not found in PAS', 'trace');
+				Yii::log("Patient with external ID '{$assignment->external_id}' not found in PAS", 'warning');
+
+				$assignment->missing_from_pas = 1;
+				$assignment->save();
+
+				if (Yii::app() instanceof CWebApplication) {
+					Yii::app()->user->setFlash('warning.pas_record_missing', 'Patient not found in PAS, some data may be out of date or incomplete');
+				}
 			}
 		} catch (CDbException $e) {
 			$this->handlePASException($e);
@@ -714,7 +715,7 @@ class PasService
 			}
 		}
 
-		if (!$ref_assignment = PasAssignment::model()->find('external_type=? and external_id=?',array('PAS_Referral',$pasReferral->REFNO))) {
+		if (!$ref_assignment = $this->assign->find('external_type=? and external_id=?',array('PAS_Referral',$pasReferral->REFNO))) {
 			$ref_assignment = new PasAssignment;
 			$ref_assignment->internal_type = 'Referral';
 			$ref_assignment->external_type = 'PAS_Referral';
@@ -830,14 +831,6 @@ class PasService
 				$whereSql .= " AND LENGTH(TRIM(TRANSLATE(n.num_id_type, '0123456789', ' '))) is null";
 			}
 
-			$command = Yii::app()->db_pas->createCommand()
-			->select('COUNT(*) as count')
-			->from('SILVER.PATIENTS P')
-			->join('SILVER.SURNAME_IDS S', 'S.rm_patient_no = P.rm_patient_no')
-			->join('SILVER.NUMBER_IDS N', 'N.rm_patient_no = P.rm_patient_no')
-			->where("surname_type = 'NO' $whereSql", $whereParams);
-			foreach ($command->queryAll() as $results) $this->num_results = $results['COUNT'];
-
 			$offset = ($page * $num_results) + 1;
 			$limit = $offset + $num_results - 1;
 			switch ($data['sortBy']) {
@@ -897,76 +890,11 @@ class PasService
 			$command->bindValues($whereParams);
 			$results = $command->queryAll();
 
-			$ids = array();
-			$patients_with_no_address = 0;
-
 			foreach ($results as $result) {
-
 				// See if the patient is in openeyes, if not then fetch from PAS
 				//Yii::log("Fetching assignment for patient: rm_patient_no:" . $result['RM_PATIENT_NO'], 'trace');
-				$patient_assignment = $this->findPatientAssignment($result['RM_PATIENT_NO'], $result['NUM_ID_TYPE'] . $result['NUMBER_ID']);
-				if ($patient_assignment) {
-					//Yii::log("Got assignment",'trace');
-					$patient = $patient_assignment->internal;
-
-					// Check that patient has an address
-					if ($patient->contact->address) {
-						$ids[] = $patient->id;
-					} else {
-						$patients_with_no_address++;
-					}
-				} else {
-					// Something went wrong with the assignment, probably a DB error
-					Yii::log("Patient assignment failed for RM_PATIENT_NO " . $result['RM_PATIENT_NO']);
-				}
-
+				$this->createOrUpdatePatient($result['RM_PATIENT_NO']);
 			}
-
-			switch (@$_GET['sort_by']) {
-				case 0:
-					// hos_num
-					$sort_by = "hos_num";
-					break;
-				case 1:
-					// title
-					$sort_by = "title";
-					break;
-				case 2:
-					// first_name
-					$sort_by = "first_name";
-					break;
-				case 3:
-					// last_name
-					$sort_by = "last_name";
-					break;
-				case 4:
-					// date of birth
-					$sort_by = "dob";
-					break;
-				case 5:
-					// gender
-					$sort_by = "gender";
-					break;
-				case 6:
-					// nhs_num
-					$sort_by = "nhs_num";
-					break;
-				default:
-					$sort_by = 'hos_num';
-
-			}
-
-			// Collect all the patients we just created
-			$criteria = new CDbCriteria;
-			$criteria->addInCondition('id', $ids);
-			$criteria->order = "$sort_by $sort_dir";
-
-			if ($patients_with_no_address > 0) {
-				$this->num_results -= $patients_with_no_address;
-				$this->no_address = true;
-			}
-
-			return $criteria;
 		} catch (CDbException $e) {
 			$this->handlePASException($e);
 		}
@@ -976,41 +904,67 @@ class PasService
 	 * Try to find patient assignment in OpenEyes and if necessary create a new one and populate it from PAS
 	 * @param string $rm_patient_no
 	 * @param string $hos_num
-	 * @return PasAssignment
 	 */
-	protected function findPatientAssignment($rm_patient_no, $hos_num)
+	public function createOrUpdatePatient($rm_patient_no)
 	{
 		//Yii::log('Getting assignment','trace');
-		$assignment = PasAssignment::model()->findByExternal('PAS_Patient', $rm_patient_no);
-		if ($assignment && $assignment->isStale()) {
-			//Yii::log('Got assignment','trace');
-			// Patient is in OpenEyes and has an existing assignment
-			$patient_id = $assignment->internal_id;
-			$patient = Patient::model()->noPas()->findByPk($patient_id);
-			$this->updatePatientFromPas($patient, $assignment);
-			//Yii::log('Updated from PAS','trace');
-		} elseif (!$assignment) {
-			//Yii::log('No assignment','trace');
-			// Patient is not in OpenEyes
-			$patient = new Patient();
-			$assignment = new PasAssignment();
-			$assignment->external_id = $rm_patient_no;
-			$assignment->external_type = 'PAS_Patient';
-			$assignment->internal_type = 'Patient';
-			$this->updatePatientFromPas($patient, $assignment);
-			//Yii::log('Updated from PAS','trace');
+		$assignment = $this->assign->findByExternal('PAS_Patient', $rm_patient_no);
 
-			if (Yii::app()->params['mehpas_legacy_letters']) {
+		if ($assignment->isNewRecord && ($patient = $this->checkForMergedPatient($assignment->external))) {
+			$assignment->unlock();
+
+			$old_assignment = $this->assign->findByInternal('Patient', $patient->id);
+			if ($old_assignment) {  // Not a problem if missing, another process might have deleted it
+				$this->updatePatientFromPas($patient, $old_assignment);
+
+				if (!$old_assignment->missing_from_pas) {
+					throw new Exception("Duplicate patient in PAS?  Patient ID: {$patient->id}, rm_patient_nos: {$old_assignment->external_id}, {$assignment->external_id}");
+				}
+
+				Yii::app()->user->setFlash('warning.pas_record_missing', null);
+
+				$old_assignment->delete();
+				$old_assignment->unlock();
+			}
+
+			// Re-obtain lock
+			$assignment = $this->assign->findByExternal('PAS_Patient', $rm_patient_no);
+			if ($assignment->isNewRecord) {  // ok, nobody else has written to it in the meantime
+				$assignment->internal_id = $patient->id;
+			}
+		}
+
+		if ($assignment->isStale()) {
+			$patient = $assignment->internal;
+			$new = $patient->isNewRecord;
+			$this->updatePatientFromPas($patient, $assignment);
+			if ($new && Yii::app()->params['mehpas_legacy_letters']) {
 				Yii::import('application.modules.OphLeEpatientletter.models.*');
 				$this->associateLegacyEvents($patient);
 			}
 		}
-		// Only return assignment if it's been fully updated
-		if ($assignment->internal) {
-			return $assignment;
-		} else {
+		$assignment->unlock();
+	}
+
+	protected function checkForMergedPatient(PAS_Patient $pas_patient)
+	{
+		// Look for existing patients with a matching hos_num
+		$crit = new CDbCriteria;
+		$crit->addInCondition('hos_num', $pas_patient->getAllHosNums());
+		$crit->order = 'last_modified_date desc';
+		$patient = Patient::model()->noPas()->find($crit);
+		if (!$patient) return null;
+
+		// Sanity checks
+		if (strtotime($patient->dob) != strtotime($pas_patient->DATE_OF_BIRTH) ||
+			$patient->contact->last_name != $this->fixCase($pas_patient->name->SURNAME_ID)) {
+			Yii::log("Rejected patient ID {$patient->id} for merge with rm_patient_no {$pas_patient->RM_PATIENT_NO} after sanity checks", "trace");
 			return null;
 		}
+
+		Yii::log("Selected patient ID {$patient->id} for merge with rm_patient_no {$pas_patient->RM_PATIENT_NO}", "trace");
+
+		return $patient;
 	}
 
 	/**
