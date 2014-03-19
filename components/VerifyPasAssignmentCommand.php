@@ -32,7 +32,7 @@ class VerifyPasAssignmentCommand extends CConsoleCommand
 
 	public function run($args)
 	{
-		$pas_service = new PasService();
+		$pas_service = PasService::load();
 		if ($pas_service->isAvailable()) {
 			$this->verifyPatientPasAssignment();
 			$this->verifyGpPasAssignment();
