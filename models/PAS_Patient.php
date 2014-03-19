@@ -165,6 +165,7 @@ class PAS_Patient extends MultiActiveRecord
 						// Exclude expired and future gps
 						'condition' => '("PatientGp"."DATE_TO" IS NULL OR "PatientGp"."DATE_TO" >= SYSDATE) AND ("PatientGp"."DATE_FROM" IS NULL OR "PatientGp"."DATE_FROM" <= SYSDATE)',
 				),
+				'PatientReferrals' => array(self::HAS_MANY, 'PAS_Referral', 'X_CN'),
 		);
 	}
 

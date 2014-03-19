@@ -1,4 +1,5 @@
 <?php
+
 /**
  * (C) OpenEyes Foundation, 2014
  * This file is part of OpenEyes.
@@ -15,22 +16,30 @@
 
 class PasServiceTest extends CDbTestCase
 {
-	protected $fixtures = array(
-		'Address',
-		'Contact',
-		'Gp',
-		'Patient',
-		'Practice',
+	public $fixtures = array(
+		'address' => 'Address',
+		'contact' => 'Contact',
+		'gp' => 'Gp',
+		'patient' => 'Patient',
+		'practice' => 'Practice',
+		'referral_type' => 'ReferralType',
+		'service' => 'Service',
+		'subspecialty' => 'Subspecialty',
+		'service_subspecialty_assignment' => 'ServiceSubspecialtyAssignment',
+		'firm' => 'Firm',
+
 	);
 
 	private $pas_gp, $gp_assignment;
 	private $pas_practice, $practice_assignment;
 	private $pas_patient, $patient_assignment;
+	private $pas_referral_type, $pas_referral, $pas_referral_assignment;
 	private $assign;
 	private $service;
 
 	public function setUp()
 	{
+		parent::setUp();
 		$this->pas_gp = ComponentStubGenerator::generate(
 			'PAS_Gp',
 			array(
@@ -119,6 +128,38 @@ class PasServiceTest extends CDbTestCase
 			),
 		);
 
+		$this->pas_referral_type = ComponentStubGenerator::generate(
+			'PAS_ReferralType',
+			array(
+				'ULNKEY' => 'SREF',
+				'CODE' => $this->referral_type('reftype1')->code
+			)
+		);
+
+		$this->pas_referral = ComponentStubGenerator::generate(
+				'PAS_Referral',
+				array(
+						'REFNO' => 123,
+						'X_CN' => 54374,
+						'DATEX' => '2012-04-03',
+						'DT_REC' => '2012-04-14',
+						'SRCE_REF' => $this->referral_type('reftype1')->code,
+						'pas_ref_type' => $this->pas_referral_type
+				)
+		);
+
+		$this->pas_referral_assignment = ComponentStubGenerator::generate(
+				'PasAssignment',
+				array(
+						'external_type' => 'PAS_Referral',
+						'external_id' => 123,
+						'external' => $this->pas_referral,
+						'internal' => new Referral,
+				)
+		);
+
+		$this->pas_referral_assignment->expects($this->any())->method('save')->will($this->returnValue(true));
+
 		$this->pas_patient = ComponentStubGenerator::generate(
 			'PAS_Patient',
 			array(
@@ -133,6 +174,7 @@ class PasServiceTest extends CDbTestCase
 				'address' => $addresses[0],
 				'addresses' => $addresses,
 				'PatientGp' => ComponentStubGenerator::generate('PAS_PatientGps', array('GP_ID' => 'GP42', 'PRACTICE_CODE' => 'PRAC43')),
+				'PatientReferrals' => array($this->pas_referral)
 			)
 		);
 
@@ -154,6 +196,7 @@ class PasServiceTest extends CDbTestCase
 					array('PAS_Gp', 'GP42', $this->gp_assignment),
 					array('PAS_Practice', 'PRAC43', $this->practice_assignment),
 					array('PAS_Patient', '54374', $this->patient_assignment),
+					array('PAS_Referral', 123, $this->pas_referral_assignment),
 				)
 			)
 		);
@@ -162,8 +205,6 @@ class PasServiceTest extends CDbTestCase
 		$this->service->setAvailable();
 
 		Yii::app()->params['mehpas_legacy_letters'] = false;
-
-		parent::setUp();
 	}
 
 	public function testUpdateGpFromPas_New()
@@ -276,6 +317,8 @@ class PasServiceTest extends CDbTestCase
 		$this->assertEquals($this->gp_assignment->internal_id, $patient->gp_id);
 		$this->assertEquals($this->practice_assignment->internal_id, $patient->practice_id);
 		$this->assertEquals(3, $patient->ethnic_group_id);
+		$this->assertEquals($this->pas_referral_assignment->internal->patient_id, $patient->id);
+
 	}
 
 	public function testUpdatePatientFromPas_Existing_Removed()
@@ -388,6 +431,58 @@ class PasServiceTest extends CDbTestCase
 		$this->assertEquals($this->patient_assignment->internal_id, $patient->id);
 		$patient = $this->fetchPatient();
 		$this->assertEquals('056789', $patient->hos_num);
+	}
+
+	public function testupdateReferralFromPAS_New() {
+		$referral = $this->getMockBuilder('Referral')
+				->disableOriginalConstructor()
+				->setMethods(array('save'))
+				->getMock();
+		$referral->expects($this->once())
+			->method('save')
+			->will($this->returnValue(true));
+
+		$this->assertSame($referral, $this->service->updateReferralFromPas($referral, $this->pas_referral_assignment));
+		$this->assertEquals($this->referral_type('reftype1')->id, $referral->referral_type_id);
+		$this->assertEquals($this->pas_referral_assignment->external->DATEX . " 00:01", $referral->clock_start);
+		$this->assertEquals($this->pas_referral_assignment->external->DT_CLOSE, $referral->closed_date);
+		$this->assertEquals($this->pas_referral_assignment->external->DT_REC, $referral->received_date);
+		$this->assertEquals($this->pas_referral_assignment->external->REF_PERS, $referral->referrer);
+	}
+
+	public function testupdateReferralFromPAS_Subspecialty()
+	{
+		$referral = $this->getMockBuilder('Referral')
+				->disableOriginalConstructor()
+				->setMethods(array('save'))
+				->getMock();
+		$referral->expects($this->once())
+				->method('save')
+				->will($this->returnValue(true));
+
+		$this->pas_referral_assignment->external->REF_PERS = "FAKE";
+		$this->pas_referral_assignment->external->REF_SPEC = $this->subspecialty('subspecialty1')->ref_spec;
+		$this->assertSame($referral, $this->service->updateReferralFromPas($referral, $this->pas_referral_assignment));
+		$this->assertEquals(1, $referral->service_subspecialty_assignment_id);
+		$this->assertNull($referral->firm_id);
+	}
+
+	public function testupdateReferralFromPAS_Firm()
+	{
+		$referral = $this->getMockBuilder('Referral')
+				->disableOriginalConstructor()
+				->setMethods(array('save'))
+				->getMock();
+		$referral->expects($this->once())
+				->method('save')
+				->will($this->returnValue(true));
+
+		$this->pas_referral_assignment->external->REF_PERS = $this->firm('firm1')->pas_code;
+		$this->pas_referral_assignment->external->REF_SPEC = $this->subspecialty('subspecialty1')->ref_spec;
+		$this->assertSame($referral, $this->service->updateReferralFromPas($referral, $this->pas_referral_assignment));
+		$this->assertEquals(1, $referral->service_subspecialty_assignment_id);
+		$this->assertEquals($this->firm('firm1')->id, $referral->firm_id);
+
 	}
 
 	private function createGp()

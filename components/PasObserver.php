@@ -177,22 +177,6 @@ class PasObserver
 	}
 
 	/**
-	 * Fetch referral from PAS
-	 * @param unknown_type $params
-	 * @todo This method is currently disabled until the referral code is fixed
-	 */
-	public function fetchReferralFromPas($params)
-	{
-		return false;
-		$pas_service = PasService::load();
-		if ($pas_service->available) {
-			$pas_service->fetchReferral($params['episode']);
-		} else {
-			$pas_service->flashPasDown();
-		}
-	}
-
-	/**
 	 * Start buffering PAS events so they can be processed as a batch job
 	 * which should hopefully be more efficient
 	 */
