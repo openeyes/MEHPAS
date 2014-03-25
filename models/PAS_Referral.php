@@ -94,6 +94,10 @@ class PAS_Referral extends MultiActiveRecord
 		return 'SILVER.OUT040_REFDETS';
 	}
 
+	public function primaryKey()
+	{
+		return 'REFNO';
+	}	
 
 	/**
 	 * @return array validation rules for model attributes.
