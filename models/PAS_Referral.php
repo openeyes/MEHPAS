@@ -130,7 +130,8 @@ class PAS_Referral extends MultiActiveRecord
 		// class name for the relations automatically generated below.
 		return array(
 			'pas_ref_type' => array(self::HAS_ONE, 'PAS_ReferralType', 'SRCE_REF', 'on' => 'pas_ref_type.ULNKEY = \'SREF\''),
-			'patient' => array(self::BELONGS_TO, 'PAS_Patient', 'X_CN')
+			'patient' => array(self::BELONGS_TO, 'PAS_Patient', 'X_CN'),
+			'pas_rtt' => array(self::HAS_ONE, 'PAS_RTT', 'REF_NO', 'on' => 'pas_rtt.SEQ = 1'),
 		);
 	}
 
@@ -186,6 +187,14 @@ class PAS_Referral extends MultiActiveRecord
 				'REF_ORG' => 'Ref Org',
 				'RTT' => 'Rtt',
 		);
+	}
+
+	/**
+	 * Wrapper function for searching for the referral from the PasAssignment object.
+	 */
+	public function findByExternalId($id)
+	{
+		return $this->findByPk($id);
 	}
 
 	/**

@@ -742,12 +742,16 @@ class PasService
 
 				$referral->refno = $pas_referral->REFNO;
 				$referral->referral_type_id = $referral_type->id;
-				if ($pas_referral->TIMEX) {
+				if ($pas_rtt = $pas_referral->pas_rtt) {
+					$referral->clock_start = $pas_rtt->CLST_DT;
+				}
+				elseif ($pas_referral->TIMEX) {
 					$referral->clock_start = $pas_referral->DATEX . " " . $pas_referral->TIMEX;
 				}
 				else {
 					$referral->clock_start = $pas_referral->DATEX . " 00:01";
 				}
+
 				$referral->received_date = $pas_referral->DT_REC;
 				$referral->closed_date = $pas_referral->DT_CLOSE ? $pas_referral->DT_CLOSE : null;
 				$referral->referrer = $pas_referral->REF_PERS;
