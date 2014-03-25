@@ -450,6 +450,27 @@ class PasServiceTest extends CDbTestCase
 		$this->assertEquals($this->pas_referral_assignment->external->REF_PERS, $referral->referrer);
 	}
 
+	public function testupdateReferralFromPAS_NewWithPasRTT() {
+		$referral = $this->getMockBuilder('Referral')
+				->disableOriginalConstructor()
+				->setMethods(array('save'))
+				->getMock();
+		$referral->expects($this->once())
+				->method('save')
+				->will($this->returnValue(true));
+
+		$this->pas_referral->pas_rtt = ComponentStubGenerator::generate('PAS_RTT', array(
+						'CLST_DT' => '2012-03-03'
+				));
+
+		$this->assertSame($referral, $this->service->updateReferralFromPas($referral, $this->pas_referral_assignment));
+		$this->assertEquals($this->referral_type('reftype1')->id, $referral->referral_type_id);
+		$this->assertEquals('2012-03-03', $referral->clock_start);
+		$this->assertEquals($this->pas_referral_assignment->external->DT_CLOSE, $referral->closed_date);
+		$this->assertEquals($this->pas_referral_assignment->external->DT_REC, $referral->received_date);
+		$this->assertEquals($this->pas_referral_assignment->external->REF_PERS, $referral->referrer);
+	}
+
 	public function testupdateReferralFromPAS_Subspecialty()
 	{
 		$referral = $this->getMockBuilder('Referral')
