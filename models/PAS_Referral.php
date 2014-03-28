@@ -135,7 +135,7 @@ class PAS_Referral extends MultiActiveRecord
 		return array(
 			'pas_ref_type' => array(self::HAS_ONE, 'PAS_ReferralType', 'SRCE_REF', 'on' => 'pas_ref_type.ULNKEY = \'SREF\''),
 			'patient' => array(self::BELONGS_TO, 'PAS_Patient', 'X_CN'),
-			'pas_rtt' => array(self::HAS_MANY, 'PAS_RTT', 'REF_NO'),
+			'pas_rtts' => array(self::HAS_MANY, 'PAS_RTT', 'REF_NO'),
 		);
 	}
 

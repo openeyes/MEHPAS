@@ -90,18 +90,7 @@ class PasAssignment extends BaseActiveRecord
 	 */
 	public function getExternal()
 	{
-		$keys = self::model($this->external_type)->primaryKey();
-
-		$id = $this->external_id;
-		if (is_array($keys)) {
-			$vals = explode(":", $id);
-			$id = array();
-			foreach ($keys as $i => $k) {
-				$id[$k] = $vals[$i];
-			}
-		}
-
-		return self::model($this->external_type)->findByExternalId($id);
+		return self::model($this->external_type)->findByExternalId($this->external_id);
 	}
 
 	/**
