@@ -34,6 +34,7 @@ class PasServiceTest extends CDbTestCase
 	private $pas_practice, $practice_assignment;
 	private $pas_patient, $patient_assignment;
 	private $pas_referral_type, $pas_referral, $pas_referral_assignment;
+	private $pas_rtts, $pas_rtt_assignments;
 	private $assign;
 	private $service;
 
@@ -136,6 +137,55 @@ class PasServiceTest extends CDbTestCase
 			)
 		);
 
+		$this->pas_rtts = array(
+			ComponentStubGenerator::generate(
+					'PAS_RTT',
+					array(
+						'REF_NO' => 123,
+						'SEQ' => 1,
+						'CLST_DT' => '2012-05-01',
+						'CLED_DT' => '2012-08-25',
+						'BR_DT' => '2012-09-02',
+						'STATUS' => 'C'
+					)),
+			ComponentStubGenerator::generate(
+					'PAS_RTT',
+					array(
+							'REF_NO' => 123,
+							'SEQ' => 2,
+							'CLST_DT' => '2012-07-21',
+							'BR_DT' => '2012-11-22',
+							'STATUS' => 'O'
+					)),
+		);
+		// fake out the external key behaviour for mapping on the assignments
+		foreach ($this->pas_rtts as $pas_rtt) {
+			$pas_rtt->expects($this->any())
+				->method('getPrimaryKey')
+				->will($this->returnValue($pas_rtt->REF_NO . ":" .$pas_rtt->SEQ));
+		}
+
+		$this->pas_rtt_assignments = array(
+				ComponentStubGenerator::generate(
+						'PasAssignment',
+						array(
+								'external_type' => 'PAS_RTT',
+								'external_id' => '123:1',
+								'external' => $this->pas_rtts[0],
+								'internal' => new RTT,
+						)
+				),
+				ComponentStubGenerator::generate(
+						'PasAssignment',
+						array(
+								'external_type' => 'PAS_RTT',
+								'external_id' => '123:2',
+								'external' => $this->pas_rtts[1],
+								'internal' => new RTT,
+						)
+				)
+		);
+
 		$this->pas_referral = ComponentStubGenerator::generate(
 				'PAS_Referral',
 				array(
@@ -144,7 +194,8 @@ class PasServiceTest extends CDbTestCase
 						'DATEX' => '2012-04-03',
 						'DT_REC' => '2012-04-14',
 						'SRCE_REF' => $this->referral_type('reftype1')->code,
-						'pas_ref_type' => $this->pas_referral_type
+						'pas_ref_type' => $this->pas_referral_type,
+						'pas_rtts' => $this->pas_rtts
 				)
 		);
 
@@ -197,6 +248,8 @@ class PasServiceTest extends CDbTestCase
 					array('PAS_Practice', 'PRAC43', $this->practice_assignment),
 					array('PAS_Patient', '54374', $this->patient_assignment),
 					array('PAS_Referral', 123, $this->pas_referral_assignment),
+					array('PAS_RTT', '123:1', $this->pas_rtt_assignments[0]),
+					array('PAS_RTT', '123:2', $this->pas_rtt_assignments[1]),
 				)
 			)
 		);
@@ -433,7 +486,7 @@ class PasServiceTest extends CDbTestCase
 		$this->assertEquals('056789', $patient->hos_num);
 	}
 
-	public function testupdateReferralFromPAS_New() {
+	public function testupdateReferralFromPas_New() {
 		$referral = $this->getMockBuilder('Referral')
 				->disableOriginalConstructor()
 				->setMethods(array('save'))
@@ -444,13 +497,12 @@ class PasServiceTest extends CDbTestCase
 
 		$this->assertSame($referral, $this->service->updateReferralFromPas($referral, $this->pas_referral_assignment));
 		$this->assertEquals($this->referral_type('reftype1')->id, $referral->referral_type_id);
-		$this->assertEquals($this->pas_referral_assignment->external->DATEX . " 00:01", $referral->clock_start);
 		$this->assertEquals($this->pas_referral_assignment->external->DT_CLOSE, $referral->closed_date);
 		$this->assertEquals($this->pas_referral_assignment->external->DT_REC, $referral->received_date);
 		$this->assertEquals($this->pas_referral_assignment->external->REF_PERS, $referral->referrer);
 	}
 
-	public function testupdateReferralFromPAS_NewWithPasRTT() {
+	public function testupdateReferralFromPas_NewWithPasRTT() {
 		$referral = $this->getMockBuilder('Referral')
 				->disableOriginalConstructor()
 				->setMethods(array('save'))
@@ -459,19 +511,28 @@ class PasServiceTest extends CDbTestCase
 				->method('save')
 				->will($this->returnValue(true));
 
-		$this->pas_referral->pas_rtt = ComponentStubGenerator::generate('PAS_RTT', array(
-						'CLST_DT' => '2012-03-03'
-				));
+		$svc = $this->getMockBuilder('PasService')
+				->setConstructorArgs(array($this->assign))
+				->setMethods(array('updateRTTFromPas'))
+				->getMock();
 
-		$this->assertSame($referral, $this->service->updateReferralFromPas($referral, $this->pas_referral_assignment));
+		foreach ($this->pas_rtt_assignments as $pra) {
+			$pra->expects($this->once())
+				->method('isStale')
+				->will($this->returnValue(true));
+		}
+		$svc->expects($this->exactly(2))
+			->method('updateRTTFromPas');
+		$svc->setAvailable();
+
+		$this->assertSame($referral, $svc->updateReferralFromPas($referral, $this->pas_referral_assignment));
 		$this->assertEquals($this->referral_type('reftype1')->id, $referral->referral_type_id);
-		$this->assertEquals('2012-03-03', $referral->clock_start);
 		$this->assertEquals($this->pas_referral_assignment->external->DT_CLOSE, $referral->closed_date);
 		$this->assertEquals($this->pas_referral_assignment->external->DT_REC, $referral->received_date);
 		$this->assertEquals($this->pas_referral_assignment->external->REF_PERS, $referral->referrer);
 	}
 
-	public function testupdateReferralFromPAS_Subspecialty()
+	public function testupdateReferralFromPas_Subspecialty()
 	{
 		$referral = $this->getMockBuilder('Referral')
 				->disableOriginalConstructor()
@@ -488,7 +549,7 @@ class PasServiceTest extends CDbTestCase
 		$this->assertNull($referral->firm_id);
 	}
 
-	public function testupdateReferralFromPAS_Firm()
+	public function testupdateReferralFromPas_Firm()
 	{
 		$referral = $this->getMockBuilder('Referral')
 				->disableOriginalConstructor()
@@ -504,6 +565,48 @@ class PasServiceTest extends CDbTestCase
 		$this->assertEquals(1, $referral->service_subspecialty_assignment_id);
 		$this->assertEquals($this->firm('firm1')->id, $referral->firm_id);
 
+	}
+
+	public function testupdateRTTFromPAS_inactive()
+	{
+		$rtt = $this->getMockBuilder('RTT')
+				->disableOriginalConstructor()
+				->setMethods(array('save'))
+				->getMock();
+		$rtt->expects($this->once())
+			->method('save')
+			->will($this->returnValue(true));
+
+		$this->pas_rtts[0]->expects($this->once())
+			->method('isActive')
+			->will($this->returnValue(false));
+
+		$this->assertSame($rtt, $this->service->updateRTTFromPas($rtt, $this->pas_rtt_assignments[0]));
+		$this->assertEquals($this->pas_rtts[0]->CLST_DT, $rtt->clock_start);
+		$this->assertEquals($this->pas_rtts[0]->CLED_DT, $rtt->clock_end);
+		$this->assertEquals($this->pas_rtts[0]->BR_DT, $rtt->breach);
+		$this->assertFalse($rtt->active);
+	}
+
+	public function testupdateRTTFromPAS_active()
+	{
+		$rtt = $this->getMockBuilder('RTT')
+				->disableOriginalConstructor()
+				->setMethods(array('save'))
+				->getMock();
+		$rtt->expects($this->once())
+				->method('save')
+				->will($this->returnValue(true));
+
+		$this->pas_rtts[1]->expects($this->once())
+				->method('isActive')
+				->will($this->returnValue(true));
+
+		$this->assertSame($rtt, $this->service->updateRTTFromPas($rtt, $this->pas_rtt_assignments[1]));
+		$this->assertEquals($this->pas_rtts[1]->CLST_DT, $rtt->clock_start);
+		$this->assertEquals($this->pas_rtts[1]->CLED_DT, $rtt->clock_end);
+		$this->assertEquals($this->pas_rtts[1]->BR_DT, $rtt->breach);
+		$this->assertTrue($rtt->active);
 	}
 
 	private function createGp()

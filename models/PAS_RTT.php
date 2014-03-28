@@ -41,6 +41,7 @@
  */
 class PAS_RTT extends MultiActiveRecord
 {
+	private static $ACTIVE_STATUS_CODES = array('O');
 	/**
 	 * Returns the static model of the specified AR class.
 	 * @return PAS_Referral the static model class
@@ -82,6 +83,7 @@ class PAS_RTT extends MultiActiveRecord
 		// NOTE: you should only define rules for those attributes that
 		// will receive user inputs.
 		return array(
+			array('REF_NO, SEQ, CLST_DT, BR_DT, STATUS', 'safe')
 		);
 	}
 
@@ -119,5 +121,19 @@ class PAS_RTT extends MultiActiveRecord
 		return new CActiveDataProvider(get_class($this), array(
 				'criteria'=>$criteria,
 		));
+	}
+
+	/**
+	 * Wrapper function for searching for the referral from the PasAssignment object.
+	 * NOTE for RTT we expect an arrray of column names and values for this id
+	 */
+	public function findByExternalId($id)
+	{
+		return $this->findByPk($id);
+	}
+
+	public function isActive()
+	{
+		return in_array($this->STATUS, self::$ACTIVE_STATUS_CODES);
 	}
 }

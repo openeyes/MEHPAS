@@ -721,7 +721,7 @@ class PasService
 			try {
 				Yii::log("Pulling data from PAS for Referral: id: {$referral->id}, PasAssignment->id: {$ref_assignment->id}, PasAssignment->external_id: {$ref_assignment->external_id}", 'trace');
 				if (!$ref_assignment->external_id) {
-					// Without an external ID we have no way of looking up the gp in PAS
+					// Without an external ID we have no way of looking up the referral in PAS
 					throw new CException('Referral assignment has no external ID');
 				}
 				if ($pas_referral = $ref_assignment->external) {
@@ -742,15 +742,6 @@ class PasService
 
 				$referral->refno = $pas_referral->REFNO;
 				$referral->referral_type_id = $referral_type->id;
-				if ($pas_rtt = $pas_referral->pas_rtt) {
-					$referral->clock_start = $pas_rtt->CLST_DT;
-				}
-				elseif ($pas_referral->TIMEX) {
-					$referral->clock_start = $pas_referral->DATEX . " " . $pas_referral->TIMEX;
-				}
-				else {
-					$referral->clock_start = $pas_referral->DATEX . " 00:01";
-				}
 
 				$referral->received_date = $pas_referral->DT_REC;
 				$referral->closed_date = $pas_referral->DT_CLOSE ? $pas_referral->DT_CLOSE : null;
@@ -810,6 +801,23 @@ class PasService
 				if (!$ref_assignment->save()) {
 					throw new Exception("Unable to save pas_assignment: ".print_r($ref_assignment->getErrors(),true));
 				}
+
+				$pas_rtts = $pas_referral->pas_rtts;
+
+				Yii::log('Got ' . count($pas_rtts) . ' RTTs for referral');
+
+				if ($pas_rtts) {
+					foreach ($pas_rtts as $pas_rtt) {
+						/** @var $rtt_assignment PasAssignment */
+						$rtt_assignment = $this->assign->findByExternal('PAS_RTT', $pas_rtt->getPrimaryKey());
+						$rtt = $rtt_assignment->internal;
+						$rtt->referral_id = $referral->id;
+						if ($rtt_assignment->isStale()) {
+							$this->updateRTTFromPas($rtt, $rtt_assignment);
+						}
+						$rtt_assignment->unlock();
+					}
+				}
 			}
 			catch (Exception $e) {
 				$this->handlePASException($e);
@@ -817,6 +825,38 @@ class PasService
 		}
 		return $referral;
 	}
+
+	/**
+	 * Will update the given $rtt record with the information from the PAS_RTT in $rtt_assignment
+	 *
+	 * @param RTT $rtt
+	 * @param PasAssignment $rtt_assignment
+	 * @return RTT
+	 */
+	public function updateRTTFromPas($rtt, $rtt_assignment)
+	{
+		if ($this->available) {
+			try {
+				$pas_rtt = $rtt_assignment->external;
+
+				$rtt->clock_start = $pas_rtt->CLST_DT;
+				$rtt->clock_end = $pas_rtt->CLED_DT;
+				$rtt->breach = $pas_rtt->BR_DT;
+				$rtt->active = $pas_rtt->isActive();
+				$rtt->comments = $pas_rtt->CMNTS;
+
+				if (!$rtt->save()) {
+					throw new Exception("Unable to save rtt: ".print_r($rtt->getErrors(),true));
+				}
+
+			}
+			catch (Exception $e) {
+				$this->handlePASException($e);
+			}
+		}
+		return $rtt;
+	}
+
 
 	/**
 	 * Perform a search based on form $_POST data from the patient search page
