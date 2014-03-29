@@ -123,6 +123,10 @@ class PasAssignment extends BaseActiveRecord
 	 */
 	public function findByExternal($external_type, $external_id)
 	{
+		if (is_array($external_id)) {
+			$external_id = implode(':', $external_id);
+		}
+
 		$this->lock($external_type, $external_id);
 
 		$record = $this->findByAttributes(array('external_type' => $external_type, 'external_id' => $external_id));

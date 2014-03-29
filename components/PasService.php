@@ -849,6 +849,11 @@ class PasService
 					throw new Exception("Unable to save rtt: ".print_r($rtt->getErrors(),true));
 				}
 
+				$rtt_assignment->internal_id = $rtt->id;
+				if (!$rtt_assignment->save()) {
+					throw new Exception("Unable to save rtt assignment: ".print_r($rtt_assignment->getErrors(),true));
+				}
+
 			}
 			catch (Exception $e) {
 				$this->handlePASException($e);

@@ -129,6 +129,13 @@ class PAS_RTT extends MultiActiveRecord
 	 */
 	public function findByExternalId($id)
 	{
+		if (!is_array($id)) {
+			$keys = self::primaryKey();
+			foreach (explode(':', $id) as $i => $v) {
+				$aid[$keys[$i]] = $v;
+			}
+			$id = $aid;
+		}
 		return $this->findByPk($id);
 	}
 
