@@ -91,6 +91,7 @@ return array(
 	),
 	'params'=>array(
 		'mehpas_enabled' => false, // Disabled by default
+		'mehpas_importreferrals' => true, // whether referrals should be imported for patients.
 		'mehpas_cache_time' => 300,
 		'mehpas_bad_gps' => array(),
 		'admin_menu' => array(

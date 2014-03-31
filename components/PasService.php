@@ -609,20 +609,21 @@ class PasService
 				}
 				CommissioningBodyPatientAssignment::model()->deleteByPk($other_ccgs);
 
-				$pas_referrals = $pas_patient->PatientReferrals;
-				Yii::log('Got ' . count($pas_referrals) . ' referrals for patient');
+				if (Yii::app()->params['mehpas_importreferrals']) {
+					$pas_referrals = $pas_patient->PatientReferrals;
+					Yii::log('Got ' . count($pas_referrals) . ' referrals for patient');
 
-				if ($pas_referrals) {
-					foreach ($pas_referrals as $pas_referral) {
-						/** @var $referral_assignment PasAssignment */
-						$referral_assignment = $this->assign->findByExternal('PAS_Referral', $pas_referral->REFNO);
-						$referral = $referral_assignment->internal;
-						$referral->patient_id = $patient->id;
-						if ($referral_assignment->isStale()) {
-							// CURRENTLY - changing this to mimic the GP update behaviour so the testing can be more discrete
-							$this->updateReferralFromPAS($referral, $referral_assignment);
+					if ($pas_referrals) {
+						foreach ($pas_referrals as $pas_referral) {
+							/** @var $referral_assignment PasAssignment */
+							$referral_assignment = $this->assign->findByExternal('PAS_Referral', $pas_referral->REFNO);
+							$referral = $referral_assignment->internal;
+							$referral->patient_id = $patient->id;
+							if ($referral_assignment->isStale()) {
+								$this->updateReferralFromPAS($referral, $referral_assignment);
+							}
+							$referral_assignment->unlock();
 						}
-						$referral_assignment->unlock();
 					}
 				}
 
@@ -703,7 +704,6 @@ class PasService
 				}
 			}
 		} catch (CDbException $e) {
-			throw $e;
 			$this->handlePASException($e);
 		}
 	}

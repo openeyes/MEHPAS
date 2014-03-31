@@ -609,6 +609,75 @@ class PasServiceTest extends CDbTestCase
 		$this->assertTrue($rtt->active);
 	}
 
+	public function testupdatePatient_withReferrals()
+	{
+		$curr = Yii::app()->params['mehpas_importreferrals'];
+		Yii::app()->params['mehpas_importreferrals'] = true;
+
+		$patient = new Patient;
+
+		$service = $this->getMockBuilder('PasService')
+				->setConstructorArgs(array($this->assign))
+				->setMethods(array('updateGpFromPas', 'updatePracticeFromPas', 'updateReferralFromPas'))
+				->getMock();
+
+		$this->gp_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
+		$this->practice_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
+		$this->pas_referral_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
+
+		$service->expects($this->once())
+				->method('updateGpFromPas')
+				->will($this->returnValue($this->gp_assignment->internal));
+
+		$service->expects($this->once())
+				->method('updatePracticeFromPas')
+				->will($this->returnValue($this->practice_assignment->internal));
+
+		$service->expects($this->once())
+				->method('updateReferralFromPas')
+				->will($this->returnValue($this->pas_referral_assignment->internal));
+
+		$service->setAvailable();
+
+		$service->updatePatientFromPas($patient, $this->patient_assignment);
+
+		Yii::app()->params['mehpas_importreferrals'] = $curr;
+	}
+
+	public function testupdatePatient_noReferrals()
+	{
+		$curr = Yii::app()->params['mehpas_importreferrals'];
+		Yii::app()->params['mehpas_importreferrals'] = false;
+
+		$patient = new Patient;
+
+		$service = $this->getMockBuilder('PasService')
+			->setConstructorArgs(array($this->assign))
+			->setMethods(array('updateGpFromPas', 'updatePracticeFromPas', 'updateReferralFromPas', 'updateRTTFromPas'))
+			->getMock();
+
+		$this->gp_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
+		$this->practice_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
+		$this->pas_referral_assignment->expects($this->any())->method('isStale')->will($this->returnValue(true));
+
+		$service->expects($this->once())
+			->method('updateGpFromPas')
+			->will($this->returnValue($this->gp_assignment->internal));
+
+		$service->expects($this->once())
+				->method('updatePracticeFromPas')
+				->will($this->returnValue($this->practice_assignment->internal));
+
+		$service->expects($this->never())
+				->method('updateReferralFromPas');
+
+		$service->setAvailable();
+
+		$service->updatePatientFromPas($patient, $this->patient_assignment);
+
+		Yii::app()->params['mehpas_importreferrals'] = $curr;
+	}
+
 	private function createGp()
 	{
 		return $this->service->updateGpFromPas(new Gp, $this->gp_assignment);
