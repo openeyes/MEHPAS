@@ -611,7 +611,7 @@ class PasService
 
 				if (Yii::app()->params['mehpas_importreferrals']) {
 					$pas_referrals = $pas_patient->PatientReferrals;
-					Yii::log('Got ' . count($pas_referrals) . ' referrals for patient');
+					Yii::log('Got ' . count($pas_referrals) . ' referrals for patient', 'trace');
 
 					if ($pas_referrals) {
 						foreach ($pas_referrals as $pas_referral) {
@@ -804,7 +804,7 @@ class PasService
 
 				$pas_rtts = $pas_referral->pas_rtts;
 
-				Yii::log('Got ' . count($pas_rtts) . ' RTTs for referral');
+				Yii::log('Got ' . count($pas_rtts) . ' RTTs for referral', 'trace');
 
 				if ($pas_rtts) {
 					foreach ($pas_rtts as $pas_rtt) {
