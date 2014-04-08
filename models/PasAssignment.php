@@ -171,6 +171,6 @@ class PasAssignment extends BaseActiveRecord
 
 	protected function getLockKey($external_type, $external_id)
 	{
-		return "openeyes.mehpas.{external_type}:{external_id}";
+		return "openeyes.mehpas.{$external_type}:{$external_id}";
 	}
 }
