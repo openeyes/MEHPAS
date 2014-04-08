@@ -731,7 +731,7 @@ class PasService
 						}
 						// create a new core Referral type
 						$referral_type = new ReferralType;
-						$referral_type->code = $pas_referral_type->SRCE_REF;
+						$referral_type->code = $pas_referral_type->CODE;
 						$referral_type->name = $pas_referral_type->DESCRIPT;
 
 						if (!$referral_type->save()) {
