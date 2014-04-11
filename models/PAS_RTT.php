@@ -39,25 +39,9 @@
  * @property string $P_TEXT
  * @property string $RTT_ORG
  */
-class PAS_RTT extends MultiActiveRecord
+class PAS_RTT extends PasAssignedEntity
 {
 	private static $ACTIVE_STATUS_CODES = array('O');
-	/**
-	 * Returns the static model of the specified AR class.
-	 * @return PAS_Referral the static model class
-	 */
-	public static function model($className=__CLASS__)
-	{
-		return parent::model($className);
-	}
-
-	/**
-	 * @return string the associated db connection name
-	 */
-	public function connectionId()
-	{
-		return 'db_pas';
-	}
 
 	/**
 	 * @return string the associated database table name

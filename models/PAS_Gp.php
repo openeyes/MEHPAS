@@ -57,25 +57,8 @@
  * @property string $DATE_TO
  * @property string $HDDR_GROUP
  */
-class PAS_Gp extends MultiActiveRecord
+class PAS_Gp extends PasAssignedEntity
 {
-	/**
-	 * Returns the static model of the specified AR class.
-	 * @return PAS_Gp the static model class
-	 */
-	public static function model($className=__CLASS__)
-	{
-		return parent::model($className);
-	}
-
-	/**
-	 * @return string the associated db connection name
-	 */
-	public function connectionId()
-	{
-		return 'db_pas';
-	}
-
 	/**
 	 * @return string the associated database table name
 	 */

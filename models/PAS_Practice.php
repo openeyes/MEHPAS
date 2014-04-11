@@ -25,25 +25,8 @@
  * @property string $OBJ_LOC
  * @property string $DATE_FR
  */
-class PAS_Practice extends MultiActiveRecord
+class PAS_Practice extends PasAssignedEntity
 {
-	/**
-	 * Returns the static model of the specified AR class.
-	 * @return PAS_Practice the static model class
-	 */
-	public static function model($className=__CLASS__)
-	{
-		return parent::model($className);
-	}
-
-	/**
-	 * @return string the associated db connection name
-	 */
-	public function connectionId()
-	{
-		return 'db_pas';
-	}
-
 	/**
 	 * @return string the associated database table name
 	 */
