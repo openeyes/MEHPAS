@@ -88,11 +88,13 @@ class PasAssignment extends BaseActiveRecord
 
 	/**
 	 * Get associated external record
+	 *
+	 * @param array $with Related models to fetch at the same time
 	 * @return CActiveRecord
 	 */
-	public function getExternal()
+	public function getExternal(array $with = array())
 	{
-		return self::model($this->external_type)->findByExternalId($this->external_id);
+		return self::model($this->external_type)->with($with)->findByExternalId($this->external_id);
 	}
 
 	/**

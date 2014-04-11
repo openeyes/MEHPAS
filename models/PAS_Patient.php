@@ -146,18 +146,12 @@ class PAS_Patient extends MultiActiveRecord
 				'hos_number' => array(self::HAS_ONE, 'PAS_PatientNumber', 'RM_PATIENT_NO', 'on' => 'REGEXP_LIKE("hos_number"."NUM_ID_TYPE", \'[[:digit:]]\')'),
 				'case_notes' => array(self::HAS_MANY, 'PAS_CaseNote', 'X_CN', 'on' => "REGEXP_LIKE(ngroup, '[[:digit:]]')"),
 				'addresses' => array(self::HAS_MANY, 'PAS_PatientAddress', 'RM_PATIENT_NO',
-						// DATE_START is the tiebreaker
-						'order' => 'DATE_START DESC',
-						// Exclude expired and future addresses
-						'condition' => '("addresses"."DATE_END" IS NULL OR "addresses"."DATE_END" >= SYSDATE) AND ("addresses"."DATE_START" IS NULL OR "addresses"."DATE_START" <= SYSDATE)',
-				),
-				'address' => array(self::HAS_ONE, 'PAS_PatientAddress', 'RM_PATIENT_NO',
 						// Address preference is: Home > Correspond > other, and then DATE_START is the tiebreaker
 						'order' => '
-							DECODE("address"."ADDR_TYPE", \'H\', 1, \'C\', 2, 3),
-							"address"."DATE_START" DESC
+							DECODE("addresses"."ADDR_TYPE", \'H\', 1, \'C\', 2, 3),
+							"addresses"."DATE_START" DESC
 						',
-						'condition' => '("address"."DATE_END" IS NULL OR "address"."DATE_END" >= SYSDATE) AND ("address"."DATE_START" IS NULL OR "address"."DATE_START" <= SYSDATE)',
+					'condition' => '("addresses"."DATE_END" IS NULL OR "addresses"."DATE_END" >= SYSDATE) AND ("addresses"."DATE_START" IS NULL OR "addresses"."DATE_START" <= SYSDATE)',
 				),
 				'PatientGp' => array(self::HAS_ONE, 'PAS_PatientGps', 'RM_PATIENT_NO',
 						// DATE_FROM is the tiebreaker
@@ -259,5 +253,13 @@ class PAS_Patient extends MultiActiveRecord
 			$hos_nums[] = $case_note->C_CN;
 		}
 		return array_unique($hos_nums);
+	}
+
+	/**
+	 * @return PAS_PatientAddress|null
+	 */
+	public function getPrimaryAddress()
+	{
+		return $this->addresses ? $this->addresses[0] : null;
 	}
 }

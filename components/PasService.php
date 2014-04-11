@@ -490,7 +490,11 @@ class PasService
 				// Without an external ID we have no way of looking up the patient in PAS
 				throw new CException("Patient assignment has no external ID: PasAssignment->id: {$assignment->id}");
 			}
-			if ($pas_patient = $assignment->external) {
+
+			// Related models to include
+			$with = array('hos_number', 'nhs_number', 'name', 'addresses', 'PatientGp', 'PatientReferrals', 'PatientReferrals.pas_ref_type', 'PatientReferrals.pas_rtts');
+
+			if (($pas_patient = $assignment->getExternal($with))) {
 				Yii::log("Found patient in PAS", 'trace');
 				$patient_attrs = array(
 						'gender' => $pas_patient->SEX,
@@ -524,9 +528,9 @@ class PasService
 				$contact->title = $this->fixCase($pas_patient->name->TITLE);
 				$contact->first_name = ($pas_patient->name->NAME1) ? $this->fixCase($pas_patient->name->NAME1) : '(UNKNOWN)';
 				$contact->last_name = $this->fixCase($pas_patient->name->SURNAME_ID);
-				if ($pas_patient->address) {
+				if ($pas_patient->primaryAddress) {
 					// Get primary phone from patient's main address
-					$contact->primary_phone = $pas_patient->address->TEL_NO;
+					$contact->primary_phone = $pas_patient->primaryAddress->TEL_NO;
 				}
 				if (!$contact->save()) {
 					throw new CException('Cannot save patient contact: '.print_r($contact->getErrors(),true));
@@ -581,7 +585,7 @@ class PasService
 
 				// CCG assignment
 				$commissioning_body = null;
-				if($pas_patient->address && $ha_code = $pas_patient->address->HA_CODE) {
+				if($pas_patient->primaryAddress && $ha_code = $pas_patient->primaryAddress->HA_CODE) {
 					if($commissioning_body = $this->updateCcgFromPas($ha_code)) {
 						if(!$ccg_assignment = CommissioningBodyPatientAssignment::model()
 							->find('commissioning_body_id = :commissioning_body_id AND patient_id = :patient_id',
@@ -986,7 +990,7 @@ class PasService
 		//Yii::log('Getting assignment','trace');
 		$assignment = $this->assign->findByExternal('PAS_Patient', $rm_patient_no);
 
-		if ($assignment->isNewRecord && ($patient = $this->checkForMergedPatient($assignment->external))) {
+		if ($assignment->isNewRecord && ($patient = $this->checkForMergedPatient($assignment))) {
 			$assignment->unlock();
 
 			$old_assignment = $this->assign->findByInternal('Patient', $patient->id);
@@ -1022,8 +1026,10 @@ class PasService
 		$assignment->unlock();
 	}
 
-	protected function checkForMergedPatient(PAS_Patient $pas_patient)
+	protected function checkForMergedPatient(PasAssignment $assignment)
 	{
+		$pas_patient = $assignment->getExternal(array('hos_number', 'case_notes'));
+
 		// Look for existing patients with a matching hos_num
 		$crit = new CDbCriteria;
 		$crit->addInCondition('hos_num', $pas_patient->getAllHosNums());

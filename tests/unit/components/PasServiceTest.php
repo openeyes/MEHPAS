@@ -229,7 +229,7 @@ class PasServiceTest extends CDbTestCase
 			)
 		);
 
-		$this->patient_assignment = ComponentStubGenerator::generate(
+		$patient_assignment = ComponentStubGenerator::generate(
 			'PasAssignment',
 			array(
 				'external_type' => 'PAS_Patient',
@@ -238,7 +238,9 @@ class PasServiceTest extends CDbTestCase
 				'internal' => new Patient,
 			)
 		);
-		$this->patient_assignment->expects($this->any())->method('save')->will($this->returnValue(true));
+		$patient_assignment->expects($this->any())->method('getExternal')->will($this->returnCallback(function () use ($patient_assignment) { return $patient_assignment->external; }));
+		$patient_assignment->expects($this->any())->method('save')->will($this->returnValue(true));
+		$this->patient_assignment = $patient_assignment;
 
 		$this->assign = $this->getMockBuilder('PasAssignment')->disableOriginalConstructor()->getMock();
 		$this->assign->expects($this->any())->method('findByExternal')->will(
