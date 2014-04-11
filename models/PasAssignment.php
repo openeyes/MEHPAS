@@ -42,6 +42,8 @@ class PasAssignment extends BaseActiveRecord
 	 */
 	const PAS_CACHE_TIME = 300;
 
+	static protected $locking_types = array('PAS_Patient', 'PAS_Gp', 'PAS_Practice');
+
 	/**
 	 * Returns the static model of the specified AR class.
 	 * @return PasAssignment the static model class
@@ -105,10 +107,12 @@ class PasAssignment extends BaseActiveRecord
 		$record = $this->findByAttributes(array('internal_type' => $internal_type, 'internal_id' => $internal_id));
 		if (!$record) return null;
 
-		$this->lock($record->external_type, $record->external_id);
-		if (!$record->refresh()) {
-			$record->unlock();
-			return null;
+		if (in_array($record->external_type, self::$locking_types)) {
+			$this->lock($record->external_type, $record->external_id);
+			if (!$record->refresh()) {
+				$record->unlock();
+				return null;
+			}
 		}
 
 		return $record;
@@ -127,7 +131,9 @@ class PasAssignment extends BaseActiveRecord
 			$external_id = implode(':', $external_id);
 		}
 
-		$this->lock($external_type, $external_id);
+		if (in_array($external_type, self::$locking_types)) {
+			$this->lock($external_type, $external_id);
+		}
 
 		$record = $this->findByAttributes(array('external_type' => $external_type, 'external_id' => $external_id));
 		if (!$record) {
@@ -158,7 +164,9 @@ class PasAssignment extends BaseActiveRecord
 	 */
 	public function unlock()
 	{
-		$this->dbConnection->createCommand('SELECT RELEASE_LOCK(?)')->execute(array($this->getLockKey($this->external_type, $this->external_id)));
+		if (in_array($this->external_type, self::$locking_types)) {
+			$this->dbConnection->createCommand('SELECT RELEASE_LOCK(?)')->execute(array($this->getLockKey($this->external_type, $this->external_id)));
+		}
 	}
 
 	protected function lock($external_type, $external_id)
