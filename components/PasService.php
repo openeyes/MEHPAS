@@ -617,17 +617,15 @@ class PasService
 					$pas_referrals = $pas_patient->PatientReferrals;
 					Yii::log('Got ' . count($pas_referrals) . ' referrals for patient', 'trace');
 
-					if ($pas_referrals) {
-						foreach ($pas_referrals as $pas_referral) {
-							/** @var $referral_assignment PasAssignment */
-							$referral_assignment = $this->assign->findByExternal('PAS_Referral', $pas_referral->REFNO);
+					foreach ($pas_referrals as $pas_referral) {
+						/** @var $referral_assignment PasAssignment */
+						$referral_assignment = $pas_referral->assignment;
+						if ($referral_assignment->isStale()) {
 							$referral = $referral_assignment->internal;
 							$referral->patient_id = $patient->id;
-							if ($referral_assignment->isStale()) {
-								$this->updateReferralFromPAS($referral, $referral_assignment);
-							}
-							$referral_assignment->unlock();
+							$this->updateReferralFromPAS($referral, $pas_referral, $referral_assignment);
 						}
+						$referral_assignment->unlock();
 					}
 				}
 
@@ -716,154 +714,129 @@ class PasService
 	 * Use the PASReferral for the Patient to create a core Referral object (if it's not already created)
 	 * and update the details of it if anything has changed
 	 *
-	 * @param $referral
+	 * @param Referral $referral
+	 * @param PAS_Referral $pas_referral
 	 * @param PasAssignment $ref_assignment
-	 * @return Referral $referral
 	 */
-	public function updateReferralFromPAS($referral,$ref_assignment) {
-		if ($this->available) {
-			try {
-				Yii::log("Pulling data from PAS for Referral: id: {$referral->id}, PasAssignment->id: {$ref_assignment->id}, PasAssignment->external_id: {$ref_assignment->external_id}", 'trace');
-				if (!$ref_assignment->external_id) {
-					// Without an external ID we have no way of looking up the referral in PAS
-					throw new CException('Referral assignment has no external ID');
-				}
-				if ($pas_referral = $ref_assignment->external) {
-					if (!$referral_type = ReferralType::model()->find('code=?',array($pas_referral->SRCE_REF))) {
-						if (!$pas_referral_type = $pas_referral->pas_ref_type) {
-							throw new Exception("PAS referral apparently created with a non-existent code: {$pas_referral->REFNO} / {$pas_referral->SRCE_REF}");
-						}
-						// create a new core Referral type
-						$referral_type = new ReferralType;
-						$referral_type->code = $pas_referral_type->CODE;
-						$referral_type->name = $pas_referral_type->DESCRIPT;
+	private function updateReferralFromPAS($referral, $pas_referral, $ref_assignment)
+	{
+		Yii::log("Pulling data from PAS for Referral: id: {$referral->id}, PasAssignment->id: {$ref_assignment->id}, PasAssignment->external_id: {$ref_assignment->external_id}", 'trace');
 
-						if (!$referral_type->save()) {
-							throw new Exception("Unable to save referral_type: ".print_r($referral_type->getErrors(),true));
-						}
-					}
-				}
-
-				$referral->refno = $pas_referral->REFNO;
-				$referral->referral_type_id = $referral_type->id;
-
-				$referral->received_date = $pas_referral->DT_REC;
-				$referral->closed_date = $pas_referral->DT_CLOSE ? $pas_referral->DT_CLOSE : null;
-				$referral->referrer = $pas_referral->REF_PERS;
-
-				if ($referral->referrer) {
-					if (strlen($referral->referrer) == 4) {
-						$criteria = new CDbCriteria;
-						if ($subspecialty = Subspecialty::model()->with('serviceSubspecialtyAssignment')->find('ref_spec=?',array($pas_referral->REF_SPEC))) {
-							$criteria->addCondition('service_subspecialty_assignment_id = :ssa_id');
-							$criteria->params[':ssa_id'] = $subspecialty->serviceSubspecialtyAssignment->id;
-
-							$referral->service_subspecialty_assignment_id = $subspecialty->serviceSubspecialtyAssignment->id;
-						}
-
-						$criteria->addCondition('pas_code = :pas_code');
-						$criteria->params[':pas_code'] = $referral->referrer;
-
-						$firm_ids = array();
-						foreach (Firm::model()->findAll($criteria) as $firm) {
-							$firm_ids[] = $firm->id;
-						}
-
-						if (count($firm_ids) == 1) {
-							$referral->firm_id = $firm_ids[0];
-						}
-					}
-
-					/** Referrals reintroduced for RTT - decided that the GP relation information was not imprtant and could be removed
-					for now (the problem being that GPs are routinely cleared up, so we would need to determine some sort of soft delete
-					mechanism for them for the referral relations to be maintained
-
-					if (!$referral->firm_id) {
-					if (!$gp = Gp::model()->find('obj_prof=?',array($referral->referrer))) {
-					// See if this is a GP in PAS
-					if ($pas_gp = PAS_Gp::model()->find('obj_prof=?',array($referral->referrer))) {
-					$gp = new Gp;
-					$gp_assignment = new PasAssignment;
-					$gp_assignment->internal_type = 'Gp';
-					$gp_assignment->external_id = $pas_gp->OBJ_PROF;
-					$gp_assignment->external_type = 'PAS_Gp';
-					$gp = $this->updateGpFromPas($gp, $gp_assignment);
-					$referral->gp_id = $gp->id;
-					}
-					} else {
-					$referral->gp_id = $gp->id;
-					}
-					}
-					 */
-				}
-
-				if (!$referral->save()) {
-					throw new Exception("Unable to save referral: ".print_r($referral->getErrors(),true));
-				}
-
-				$ref_assignment->internal_id = $referral->id;
-				if (!$ref_assignment->save()) {
-					throw new Exception("Unable to save pas_assignment: ".print_r($ref_assignment->getErrors(),true));
-				}
-
-				$pas_rtts = $pas_referral->pas_rtts;
-
-				Yii::log('Got ' . count($pas_rtts) . ' RTTs for referral', 'trace');
-
-				if ($pas_rtts) {
-					foreach ($pas_rtts as $pas_rtt) {
-						/** @var $rtt_assignment PasAssignment */
-						$rtt_assignment = $this->assign->findByExternal('PAS_RTT', $pas_rtt->getPrimaryKey());
-						$rtt = $rtt_assignment->internal;
-						$rtt->referral_id = $referral->id;
-						if ($rtt_assignment->isStale()) {
-							$this->updateRTTFromPas($rtt, $rtt_assignment);
-						}
-						$rtt_assignment->unlock();
-					}
-				}
+		if (!$referral_type = ReferralType::model()->find('code=?',array($pas_referral->SRCE_REF))) {
+			if (!$pas_referral_type = $pas_referral->pas_ref_type) {
+				throw new Exception("PAS referral apparently created with a non-existent code: {$pas_referral->REFNO} / {$pas_referral->SRCE_REF}");
 			}
-			catch (Exception $e) {
-				$this->handlePASException($e);
+			// create a new core Referral type
+			$referral_type = new ReferralType;
+			$referral_type->code = $pas_referral_type->CODE;
+			$referral_type->name = $pas_referral_type->DESCRIPT;
+
+			if (!$referral_type->save()) {
+				throw new Exception("Unable to save referral_type: ".print_r($referral_type->getErrors(),true));
 			}
 		}
-		return $referral;
+
+		$referral->refno = $pas_referral->REFNO;
+		$referral->referral_type_id = $referral_type->id;
+
+		$referral->received_date = $pas_referral->DT_REC;
+		$referral->closed_date = $pas_referral->DT_CLOSE ? $pas_referral->DT_CLOSE : null;
+		$referral->referrer = $pas_referral->REF_PERS;
+
+		if ($referral->referrer) {
+			if (strlen($referral->referrer) == 4) {
+				$criteria = new CDbCriteria;
+				if ($subspecialty = Subspecialty::model()->with('serviceSubspecialtyAssignment')->find('ref_spec=?',array($pas_referral->REF_SPEC))) {
+					$criteria->addCondition('service_subspecialty_assignment_id = :ssa_id');
+					$criteria->params[':ssa_id'] = $subspecialty->serviceSubspecialtyAssignment->id;
+
+					$referral->service_subspecialty_assignment_id = $subspecialty->serviceSubspecialtyAssignment->id;
+				}
+
+				$criteria->addCondition('pas_code = :pas_code');
+				$criteria->params[':pas_code'] = $referral->referrer;
+
+				$firm_ids = array();
+				foreach (Firm::model()->findAll($criteria) as $firm) {
+					$firm_ids[] = $firm->id;
+				}
+
+				if (count($firm_ids) == 1) {
+					$referral->firm_id = $firm_ids[0];
+				}
+			}
+
+			/** Referrals reintroduced for RTT - decided that the GP relation information was not imprtant and could be removed
+				for now (the problem being that GPs are routinely cleared up, so we would need to determine some sort of soft delete
+				mechanism for them for the referral relations to be maintained
+
+				if (!$referral->firm_id) {
+				if (!$gp = Gp::model()->find('obj_prof=?',array($referral->referrer))) {
+				// See if this is a GP in PAS
+				if ($pas_gp = PAS_Gp::model()->find('obj_prof=?',array($referral->referrer))) {
+				$gp = new Gp;
+				$gp_assignment = new PasAssignment;
+				$gp_assignment->internal_type = 'Gp';
+				$gp_assignment->external_id = $pas_gp->OBJ_PROF;
+				$gp_assignment->external_type = 'PAS_Gp';
+				$gp = $this->updateGpFromPas($gp, $gp_assignment);
+				$referral->gp_id = $gp->id;
+				}
+				} else {
+				$referral->gp_id = $gp->id;
+				}
+				}
+			*/
+		}
+
+		if (!$referral->save()) {
+			throw new Exception("Unable to save referral: ".print_r($referral->getErrors(),true));
+		}
+
+		$ref_assignment->internal_id = $referral->id;
+		if (!$ref_assignment->save()) {
+			throw new Exception("Unable to save pas_assignment: ".print_r($ref_assignment->getErrors(),true));
+		}
+
+		$pas_rtts = $pas_referral->pas_rtts;
+
+		Yii::log('Got ' . count($pas_rtts) . ' RTTs for referral', 'trace');
+
+		foreach ($pas_rtts as $pas_rtt) {
+			/** @var $rtt_assignment PasAssignment */
+			$rtt_assignment = $pas_rtt->getAssignment();
+			if ($rtt_assignment->isStale()) {
+				$rtt = $rtt_assignment->internal;
+				$rtt->referral_id = $referral->id;
+				$this->updateRTTFromPas($rtt, $pas_rtt, $rtt_assignment);
+			}
+			$rtt_assignment->unlock();
+		}
 	}
 
 	/**
 	 * Will update the given $rtt record with the information from the PAS_RTT in $rtt_assignment
 	 *
 	 * @param RTT $rtt
+	 * @param PAS_RTT $pas_rtt
 	 * @param PasAssignment $rtt_assignment
-	 * @return RTT
 	 */
-	public function updateRTTFromPas($rtt, $rtt_assignment)
+	private function updateRTTFromPas($rtt, $pas_rtt, $rtt_assignment)
 	{
-		if ($this->available) {
-			try {
-				$pas_rtt = $rtt_assignment->external;
+		$rtt->clock_start = $pas_rtt->CLST_DT;
+		$rtt->clock_end = $pas_rtt->CLED_DT;
+		$rtt->breach = $pas_rtt->BR_DT;
+		$rtt->active = $pas_rtt->isActive();
+		$rtt->comments = $pas_rtt->CMNTS;
 
-				$rtt->clock_start = $pas_rtt->CLST_DT;
-				$rtt->clock_end = $pas_rtt->CLED_DT;
-				$rtt->breach = $pas_rtt->BR_DT;
-				$rtt->active = $pas_rtt->isActive();
-				$rtt->comments = $pas_rtt->CMNTS;
-
-				if (!$rtt->save()) {
-					throw new Exception("Unable to save rtt: ".print_r($rtt->getErrors(),true));
-				}
-
-				$rtt_assignment->internal_id = $rtt->id;
-				if (!$rtt_assignment->save()) {
-					throw new Exception("Unable to save rtt assignment: ".print_r($rtt_assignment->getErrors(),true));
-				}
-
-			}
-			catch (Exception $e) {
-				$this->handlePASException($e);
-			}
+		if (!$rtt->save()) {
+			throw new Exception("Unable to save rtt: ".print_r($rtt->getErrors(),true));
 		}
-		return $rtt;
+
+		$rtt_assignment->internal_id = $rtt->id;
+		if (!$rtt_assignment->save()) {
+			throw new Exception("Unable to save rtt assignment: ".print_r($rtt_assignment->getErrors(),true));
+		}
 	}
 
 
