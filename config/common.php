@@ -80,7 +80,7 @@ return array(
 			//'connectionString' => 'oci:dbname=remotename:1521/database',
 			//'username' => 'root',
 			//'password' => '',
-			'schemaCachingDuration' => 300,
+			'schemaCachingDuration' => 86400,
 			// Make oracle default date format the same as MySQL (default is DD-MMM-YY)
 			'initSQLs' => array(
 				'ALTER SESSION SET NLS_DATE_FORMAT = \'YYYY-MM-DD\'',
