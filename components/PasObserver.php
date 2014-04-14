@@ -39,31 +39,23 @@ class PasObserver
 			}
 		}
 
-		$pas_service = PasService::load();
-		if ($pas_service->isAvailable()) {
-			$assignment = PasAssignment::model()->findByInternal('Patient', $patient->id);
-			if ($assignment) {
-				if ($assignment->isStale()) {
-					Yii::log('Patient details stale', 'trace');
-					$pas_service->updatePatientFromPas($patient, $assignment);
-				}
-				$assignment->unlock();
-			} elseif (!$assignment) {
-				// Error, missing assignment
-				Yii::log("Cannot find Patient assignment|id: {$patient->id}, hos_num: {$patient->hos_num}", 'warning', 'application.action');
-				if (get_class(Yii::app()) == 'CConsoleApplication') {
-					echo "Warning: unable to update patient $patient->hos_num from PAS (merged patient)\n";
-				} else {
-					Yii::app()->getController()->render('//error/errorPAS');
-					Yii::app()->end();
-				}
+		$assignment = PasAssignment::model()->findByInternal('Patient', $patient->id);
+		if ($assignment) {
+			if ($assignment->isStale()) {
+				Yii::log('Patient details stale', 'trace');
+				PasService::load()->updatePatientFromPas($patient, $assignment);
+			}
+			$assignment->unlock();
+		} else {
+			// Error, missing assignment
+			Yii::log("Cannot find Patient assignment|id: {$patient->id}, hos_num: {$patient->hos_num}", 'warning', 'application.action');
+			if (get_class(Yii::app()) == 'CConsoleApplication') {
+				echo "Warning: unable to update patient $patient->hos_num from PAS (merged patient)\n";
+			} else {
+				Yii::app()->getController()->render('//error/errorPAS');
+				Yii::app()->end();
 			}
 		}
-		else {
-			$pas_service->flashPasDown();
-		}
-
-
 	}
 
 	/**
@@ -88,16 +80,10 @@ class PasObserver
 		if ($assignment) {
 			if ($assignment->isStale()) {
 				Yii::log('GP details stale', 'trace');
-				$pas_service = PasService::load();
-				if ($pas_service->isAvailable()) {
-					$pas_service->updateGpFromPas($gp, $assignment);
-				} else {
-					$pas_service->flashPasDown();
-				}
+				$pas_service = PasService::load()->updateGpFromPas($gp, $assignment);
 			}
 			$assignment->unlock();
-
-		} elseif (!$assignment) {
+		} else {
 			// Error, missing assignment
 			Yii::log("Cannot find Gp assignment|id: {$gp->id}, obj_prof: {$gp->obj_prof}", 'warning', 'application.action');
 			if (get_class(Yii::app()) == 'CConsoleApplication') {
@@ -106,9 +92,7 @@ class PasObserver
 				Yii::app()->getController()->render('//error/errorPAS');
 				Yii::app()->end();
 			}
-
 		}
-
 	}
 
 	/**
@@ -131,20 +115,12 @@ class PasObserver
 		// Check if stale
 		$assignment = PasAssignment::model()->findByInternal('Practice', $practice->id);
 		if ($assignment) {
-
 			if ($assignment->isStale()) {
 				Yii::log('Practice details stale', 'trace');
-				$pas_service = PasService::load();
-				if ($pas_service->isAvailable()) {
-					$pas_service->updatePracticeFromPas($practice, $assignment);
-				} else {
-					$pas_service->flashPasDown();
-				}
+				PasService::load()->updatePracticeFromPas($practice, $assignment);
 			}
 			$assignment->unlock();
-
-		} elseif (!$assignment) {
-
+		} else {
 			// Error, missing assignment
 			Yii::log("Cannot find Practice assignment|id: {$practice->id}, code: {$practice->code}", 'warning', 'application.action');
 			if (get_class(Yii::app()) == 'CConsoleApplication') {
@@ -162,18 +138,14 @@ class PasObserver
 	 */
 	public function searchPas($params)
 	{
-		$pas_service = PasService::load();
-		if ($pas_service->isAvailable()) {
-			$data = $params['params'];
-			if ($params['patient']->hos_num) {
-				$data['hos_num'] = $params['patient']->hos_num;
-			} else {
-				$data['nhs_num'] = $params['patient']->nhs_num;
-			}
-			$pas_service->search($data, $params['params']['pageSize'], $params['params']['currentPage']);
+		$data = $params['params'];
+		if ($params['patient']->hos_num) {
+			$data['hos_num'] = $params['patient']->hos_num;
 		} else {
-			$pas_service->flashPasDown();
+			$data['nhs_num'] = $params['patient']->nhs_num;
 		}
+
+		PasService::load()->search($data, $params['params']['pageSize'], $params['params']['currentPage']);
 	}
 
 	/**

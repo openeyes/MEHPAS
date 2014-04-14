@@ -44,16 +44,7 @@ class PasService
 	public function isAvailable()
 	{
 		if (!isset($this->available)) {
-			$this->available = false;
-			if (isset(Yii::app()->params['mehpas_enabled']) && Yii::app()->params['mehpas_enabled'] === true) {
-				try {
-					Yii::log('Checking PAS is available','trace');
-					$connection = Yii::app()->db_pas;
-				} catch (Exception $e) {
-					//Yii::log('PAS is not available: '.$e->getMessage());
-				}
-				$this->available = true;
-			}
+			$this->setAvailable(isset(Yii::app()->params['mehpas_enabled']) && Yii::app()->params['mehpas_enabled'] === true);
 		}
 		return $this->available;
 	}
@@ -64,16 +55,12 @@ class PasService
 	public function setAvailable($available = true)
 	{
 		$this->available = $available;
-	}
 
-	/**
-	 * Push a flash warning that the PAS is down
-	 */
-	public function flashPasDown()
-	{
-		Yii::log('PAS is not available, displayed data may be out of date', 'trace');
-		if (Yii::app() instanceof CWebApplication) {
-			Yii::app()->user->setFlash('warning.pas_unavailable', 'PAS is currently unavailable, some data may be out of date or incomplete');
+		if ($available == false) {
+			Yii::log('PAS is not available, displayed data may be out of date', 'trace');
+			if (Yii::app() instanceof CWebApplication) {
+				Yii::app()->user->setFlash('warning.pas_unavailable', 'PAS is currently unavailable, some data may be out of date or incomplete');
+			}
 		}
 	}
 
@@ -95,7 +82,7 @@ class PasService
 	 */
 	public function updateGpFromPas($gp, $assignment)
 	{
-		if ($this->available) {
+		if ($this->isAvailable()) {
 			try {
 				Yii::log("Pulling data from PAS for Gp: id: {$gp->id}, PasAssignment->id: {$assignment->id}, PasAssignment->external_id: {$assignment->external_id}", 'trace');
 				if (!$assignment->external_id) {
@@ -451,8 +438,7 @@ class PasService
 
 		Yii::log($logmsg);
 
-		$this->available = false;
-		$this->flashPasDown();
+		$this->setAvailable(false);
 	}
 
 	public function updatePatientsFromPas($patients)
@@ -849,6 +835,8 @@ class PasService
 	 */
 	public function search($data, $num_results = 20, $page = 1)
 	{
+		if (!$this->isAvailable()) return;
+
 		try {
 			Yii::log('Searching PAS', 'trace');
 
