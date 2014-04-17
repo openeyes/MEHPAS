@@ -111,9 +111,9 @@ class PasService
 					if (!$contact = $gp->contact) {
 						$contact = new Contact();
 					}
-					$contact->first_name = $this->fixCase(trim($pas_gp->FN1 . ' ' . $pas_gp->FN2));
-					$contact->last_name = $this->fixCase($pas_gp->SN);
-					$contact->title = $this->fixCase($pas_gp->TITLE);
+					$contact->first_name = PasTransformer::fixCase(trim($pas_gp->FN1 . ' ' . $pas_gp->FN2));
+					$contact->last_name = PasTransformer::fixCase($pas_gp->SN);
+					$contact->title = PasTransformer::fixCase($pas_gp->TITLE);
 					if (trim($pas_gp->TEL_1)) {
 						$contact->primary_phone = trim($pas_gp->TEL_1);
 					} else {
@@ -123,12 +123,12 @@ class PasService
 					// Address
 					$address1 = array();
 					if ($pas_gp->ADD_NAM) {
-						$address1[] = $this->fixCase(trim($pas_gp->ADD_NAM));
+						$address1[] = PasTransformer::fixCase(trim($pas_gp->ADD_NAM));
 					}
-					$address1[] = $this->fixCase(trim($pas_gp->ADD_NUM . ' ' . $pas_gp->ADD_ST));
+					$address1[] = PasTransformer::fixCase(trim($pas_gp->ADD_NUM . ' ' . $pas_gp->ADD_ST));
 					$address1 = implode("\n",$address1);
-					$address2 = $this->fixCase($pas_gp->ADD_DIS);
-					$city = $this->fixCase($pas_gp->ADD_TWN);
+					$address2 = PasTransformer::fixCase($pas_gp->ADD_DIS);
+					$city = PasTransformer::fixCase($pas_gp->ADD_TWN);
 					$postcode = strtoupper($pas_gp->PC);
 					if (trim(implode('',array($address1, $address2, $city, $postcode)))) {
 						if (!$address = $contact->address) {
@@ -137,7 +137,7 @@ class PasService
 						$address->address1 = $address1;
 						$address->address2 = $address2;
 						$address->city = $city;
-						$address->county = $this->fixCase($pas_gp->ADD_CTY);
+						$address->county = PasTransformer::fixCase($pas_gp->ADD_CTY);
 						$address->postcode = $postcode;
 						$address->country_id = 1;
 					} else {
@@ -249,12 +249,12 @@ class PasService
 		// Address
 		$address1 = array();
 		if ($pas_ccg->ADD_NAM) {
-			$address1[] = $this->fixCase(trim($pas_ccg->ADD_NAM));
+			$address1[] = PasTransformer::fixCase(trim($pas_ccg->ADD_NAM));
 		}
-		$address1[] = $this->fixCase(trim($pas_ccg->ADD_NUM . ' ' . $pas_ccg->ADD_ST));
+		$address1[] = PasTransformer::fixCase(trim($pas_ccg->ADD_NUM . ' ' . $pas_ccg->ADD_ST));
 		$address1 = implode("\n",$address1);
-		$address2 = $this->fixCase($pas_ccg->ADD_DIS);
-		$city = $this->fixCase($pas_ccg->ADD_TWN);
+		$address2 = PasTransformer::fixCase($pas_ccg->ADD_DIS);
+		$city = PasTransformer::fixCase($pas_ccg->ADD_TWN);
 		$postcode = strtoupper($pas_ccg->PC);
 		if (trim(implode('',array($address1, $address2, $city, $postcode)))) {
 			if (!$address = $contact->address) {
@@ -264,7 +264,7 @@ class PasService
 			$address->address1 = $address1;
 			$address->address2 = $address2;
 			$address->city = $city;
-			$address->county = $this->fixCase($pas_ccg->ADD_CTY);
+			$address->county = PasTransformer::fixCase($pas_ccg->ADD_CTY);
 			$address->postcode = $postcode;
 			$address->country_id = 1;
 			if (!$address->save()) {
@@ -332,12 +332,12 @@ class PasService
 					// Address
 					$address1 = array();
 					if ($pas_practice->ADD_NAM) {
-						$address1[] = $this->fixCase(trim($pas_practice->ADD_NAM));
+						$address1[] = PasTransformer::fixCase(trim($pas_practice->ADD_NAM));
 					}
-					$address1[] = $this->fixCase(trim($pas_practice->ADD_NUM . ' ' . $pas_practice->ADD_ST));
+					$address1[] = PasTransformer::fixCase(trim($pas_practice->ADD_NUM . ' ' . $pas_practice->ADD_ST));
 					$address1 = implode("\n",$address1);
-					$address2 = $this->fixCase($pas_practice->ADD_DIS);
-					$city = $this->fixCase($pas_practice->ADD_TWN);
+					$address2 = PasTransformer::fixCase($pas_practice->ADD_DIS);
+					$city = PasTransformer::fixCase($pas_practice->ADD_TWN);
 					$postcode = strtoupper($pas_practice->PC);
 					if (trim(implode('',array($address1, $address2, $city, $postcode)))) {
 						if (!$address = $contact->address) {
@@ -347,7 +347,7 @@ class PasService
 						$address->address1 = $address1;
 						$address->address2 = $address2;
 						$address->city = $city;
-						$address->county = $this->fixCase($pas_practice->ADD_CTY);
+						$address->county = PasTransformer::fixCase($pas_practice->ADD_CTY);
 						$address->postcode = $postcode;
 						$address->country_id = 1;
 					} else {
@@ -521,9 +521,9 @@ class PasService
 				}
 
 				$contact = $patient->contact;
-				$contact->title = $this->fixCase($pas_patient->name->TITLE);
-				$contact->first_name = ($pas_patient->name->NAME1) ? $this->fixCase($pas_patient->name->NAME1) : '(UNKNOWN)';
-				$contact->last_name = $this->fixCase($pas_patient->name->SURNAME_ID);
+				$contact->title = PasTransformer::fixCase($pas_patient->name->TITLE);
+				$contact->first_name = ($pas_patient->name->NAME1) ? PasTransformer::fixCase($pas_patient->name->NAME1) : '(UNKNOWN)';
+				$contact->last_name = PasTransformer::fixCase($pas_patient->name->SURNAME_ID);
 				if ($pas_patient->address) {
 					// Get primary phone from patient's main address
 					$contact->primary_phone = $pas_patient->address->TEL_NO;
@@ -559,7 +559,7 @@ class PasService
 							$address->contact_id = $contact->id;
 						}
 
-						$this->updateAddress($address, $pas_address);
+						PasTransformer::parseAddress($pas_address, $address);
 						if (!$address->save()) {
 							throw new CException('Cannot save patient address: '.print_r($address->getErrors(),true));
 						}
@@ -957,7 +957,7 @@ class PasService
 
 		// Sanity checks
 		if (strtotime($patient->dob) != strtotime($pas_patient->DATE_OF_BIRTH) ||
-			$patient->contact->last_name != $this->fixCase($pas_patient->name->SURNAME_ID)) {
+			$patient->contact->last_name != PasTransformer::fixCase($pas_patient->name->SURNAME_ID)) {
 			Yii::log("Rejected patient ID {$patient->id} for merge with rm_patient_no {$pas_patient->RM_PATIENT_NO} after sanity checks", "trace");
 			return null;
 		}
@@ -965,191 +965,6 @@ class PasService
 		Yii::log("Selected patient ID {$patient->id} for merge with rm_patient_no {$pas_patient->RM_PATIENT_NO}", "trace");
 
 		return $patient;
-	}
-
-	/**
-	 * Update address info with the latest info from PAS
-	 * @param Address $address The patient address model to be updated
-	 * @param PAS_PatientAddress $data Data from PAS to store in the patient address model
-	 */
-	protected function updateAddress($address, $data)
-	{
-		$propertyName = trim($data->PROPERTY_NAME);
-		$propertyNumber = trim($data->PROPERTY_NO);
-
-		// Make sure they are not the same!
-		if (strcasecmp($propertyName, $propertyNumber) == 0) {
-			$propertyNumber = '';
-		}
-
-		// Address1
-		$addr1 = trim($data->ADDR1);
-		if ($addr1) {
-
-			// Remove any duplicate property name or number from ADDR1
-			if (strlen($propertyName) > 0) {
-				// Search plain, with comma, and with full stop
-				$needles = array("{$propertyName},","{$propertyName}.",$propertyName);
-				$addr1 = trim(str_replace($needles, '', $addr1));
-			}
-			if (strlen($propertyNumber) > 0) {
-				// Search plain, with comma, and with full stop
-				$needles = array("{$propertyNumber},","{$propertyNumber}.",$propertyNumber);
-				$addr1 = trim(str_replace($needles, '', $addr1));
-			}
-
-			// Make sure street number has a comma and space after it
-			$addr1 = preg_replace('/([0-9]) /', '\1, ', $addr1);
-
-			// Replace any full stops after street numbers with commas
-			$addr1 = preg_replace('/([0-9])\./', '\1,', $addr1);
-
-		}
-
-		// Combine property name, number and first line
-		$address1 = array();
-		if ($propertyName) {
-			$address1[] = $propertyName;
-		}
-		if ($propertyNumber || $addr1) {
-			$address1[] = trim($propertyNumber . ' ' . $addr1);
-		}
-
-		$address1 = implode("\n", $address1);
-
-		// Create array of remaining address lines, from last to first
-		$addressLines = array();
-		foreach (array('POSTCODE','ADDR5','ADDR4','ADDR3','ADDR2') as $address_line) {
-			if ($address_line_content = trim($data->{$address_line})) {
-				$addressLines[] = $address_line_content;
-			}
-		}
-
-		// See if we can find a country
-		$country = null;
-		$index = 0;
-		while (!$country && $index < count($addressLines)) {
-			$country = Country::model()->find('LOWER(name) = :name', array(':name' => strtolower($addressLines[$index])));
-			$index++;
-		}
-		if ($country) {
-			// Found a country, so we will remove the line from the address
-			unset($addressLines[$index-1]);
-		} else {
-			// Cannot find country, so we assume it is UK
-			$country = Country::model()->findByAttributes(array('name' => 'United Kingdom'));
-		}
-
-		$address2 = '';
-		$town = '';
-		$county = '';
-		$postcode = '';
-		if ($country->name == 'United Kingdom') {
-			// We've got a UK address, so we'll see if we can parse the remaining tokens,
-
-			// Instantiate a postcode utility object
-			$postCodeUtility = new PostCodeUtility();
-
-			// Set flags and default values
-			$postCodeFound = false;
-			$postCodeOuter = '';
-			$townFound = false;
-			$countyFound = false;
-
-			// Go through array looking for likely candidates for postcode, town/city and county
-			for ($index = 0; $index < count($addressLines); $index++) {
-				if (!isset($addressLines[$index])) continue;
-
-				// Is element a postcode? (Postcodes may exist in other address lines)
-				if ($postCodeArray = $postCodeUtility->parsePostCode($addressLines[$index])) {
-					if (!$postCodeFound) {
-						$postCodeFound = true;
-						$postcode = $postCodeArray['full'];
-						$postCodeOuter = $postCodeArray['outer'];
-					}
-				} else { // Otherwise a string
-					// Last in (inverted array) is a non-postcode, non-city second address line
-					if ($townFound) {
-						$address2 = trim($addressLines[$index]);
-					}
-
-					// County?
-					if (!$countyFound) {
-						if ($postCodeUtility->isCounty($addressLines[$index])) {
-							$countyFound = true;
-							$county = trim($addressLines[$index]);
-						}
-					}
-
-					// Town?
-					if (!$townFound) {
-						if ($postCodeUtility->isTown($addressLines[$index])) {
-							$townFound = true;
-							$town = trim($addressLines[$index]);
-						}
-					}
-				}
-			}
-
-			// If no town or county found, get them from postcode data if available, otherwise fall back to best guess
-			if ($postCodeFound) {
-				if (!$countyFound) $county = $postCodeUtility->countyForOuterPostCode($postCodeOuter);
-				if (!$townFound) $town = $postCodeUtility->townForOuterPostCode($postCodeOuter);
-			} else {
-				// Number of additional address lines
-				$extraLines = count($addressLines) - 1;
-				if ($extraLines > 1) {
-					$county = trim($addressLines[0]);
-					$town = trim($addressLines[1]);
-				} elseif ($extraLines > 0) {
-					$town = trim($addressLines[0]);
-				}
-			}
-
-			// Dedupe
-			if (isset($county) && isset($town) && $town == $county) {
-				$county = '';
-			}
-		} else {
-			// We've got a non UK address, so we'll just try to store things whereever they fit
-			if (trim($data->POSTCODE)) {
-				$postcode = array_shift($addressLines);
-			} else {
-				$postcode = '';
-			}
-			if (count($addressLines)) {
-				$address2 = array_pop($addressLines);
-			}
-			if (count($addressLines)) {
-				$town = array_pop($addressLines);
-			}
-			if (count($addressLines)) {
-				$county = implode(', ', $addressLines);
-			}
-		}
-
-
-		// Store data
-		$address->address1 = $this->fixCase($address1);
-		$address->address2 = $this->fixCase($address2);
-		$address->city = $this->fixCase($town);
-		$address->county = $this->fixCase($county);
-		$address->country_id = $country->id;
-		$address->postcode = strtoupper($postcode);
-		$address->address_type_id = $this->getAddressType($data->ADDR_TYPE);
-		$address->date_start = $data->DATE_START;
-		$address->date_end = $data->DATE_END;
-	}
-
-	public function getAddressType($addr_type)
-	{
-		switch ($addr_type) {
-			case 'H': return AddressType::model()->find('name=?',array('Home'))->id;
-			case 'C': return AddressType::model()->find('name=?',array('Correspondence'))->id;
-			case 'T': return AddressType::model()->find('name=?',array('Transport'))->id;
-		}
-
-		return null;
 	}
 
 	public function associateLegacyEvents($patient)
@@ -1185,24 +1000,4 @@ class PasService
 			}
 		}
 	}
-
-	protected function fixCase($string)
-	{
-		// Basic Title Case to start with
-		$string = ucwords(strtolower($string));
-
-		// Fix delimited words
-		foreach (array('-', '\'', '.') as $delimiter) {
-			if (strpos($string, $delimiter) !== false) {
-				$string = implode($delimiter, array_map('ucfirst', explode($delimiter, $string)));
-			}
-		}
-
-		// Exception is possessive (i.e. Paul's should not be Paul'S)
-		$string = str_replace('\'S ', '\'s ', $string);
-
-		return $string;
-
-	}
-
 }
