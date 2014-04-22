@@ -56,10 +56,8 @@ class PasTransformer
 			$propertyNumber = '';
 		}
 
-		// Address1
 		$addr1 = trim($pas_address->ADDR1);
 		if ($addr1) {
-
 			// Remove any duplicate property name or number from ADDR1
 			if (strlen($propertyName) > 0) {
 				// Search plain, with comma, and with full stop
@@ -71,13 +69,6 @@ class PasTransformer
 				$needles = array("{$propertyNumber},","{$propertyNumber}.",$propertyNumber);
 				$addr1 = trim(str_replace($needles, '', $addr1));
 			}
-
-			// Make sure street number has a comma and space after it
-			$addr1 = preg_replace('/([0-9]) /', '\1, ', $addr1);
-
-			// Replace any full stops after street numbers with commas
-			$addr1 = preg_replace('/([0-9])\./', '\1,', $addr1);
-
 		}
 
 		// Combine property name, number and first line
@@ -88,124 +79,57 @@ class PasTransformer
 		if ($propertyNumber || $addr1) {
 			$address1[] = trim($propertyNumber . ' ' . $addr1);
 		}
-
 		$address1 = implode("\n", $address1);
 
-		// Create array of remaining address lines, from last to first
-		$addressLines = array();
-		foreach (array('POSTCODE','ADDR5','ADDR4','ADDR3','ADDR2') as $address_line) {
-			if ($address_line_content = trim($pas_address->{$address_line})) {
-				$addressLines[] = $address_line_content;
-			}
-		}
-
-		// See if we can find a country
+		$pcu = new PostCodeUtility();
+		$lines = array();
+		$city = null;
+		$county = null;
+		$postcode = null;
 		$country = null;
-		$index = 0;
-		while (!$country && $index < count($addressLines)) {
-			$country = Country::model()->find('LOWER(name) = :name', array(':name' => strtolower($addressLines[$index])));
-			$index++;
+		foreach (array('POSTCODE','ADDR5','ADDR4','ADDR3','ADDR2') as $name) {
+			$line = trim($pas_address->{$name});
+			if (!$line) continue;
+
+			if (!$country && ($country = Country::model()->find('name like ?', array($line)))) continue;
+
+			if (($pc_array = $pcu->parsePostCode($line))) {
+				if (!$postcode) $postcode = $pc_array['full'];
+				continue;
+			}
+
+			if (!$county && $pcu->isCounty($line)) {
+				$county = $line;
+				continue;
+			}
+
+			if (!$city && $pcu->isTown($line)) {
+				$city = $line;
+				continue;
+			}
+
+			$lines[] = $line;
 		}
-		if ($country) {
-			// Found a country, so we will remove the line from the address
-			unset($addressLines[$index-1]);
-		} else {
-			// Cannot find country, so we assume it is UK
-			$country = Country::model()->findByAttributes(array('name' => 'United Kingdom'));
+		$lines = array_unique($lines);
+
+		// Cannot find country, so we assume it is UK
+		if (!$country) $country = Country::model()->findByAttributes(array('name' => 'United Kingdom'));
+
+		// If we didn't recognise a postcode (eg foreign country), trust the PAS postcode entry
+		if (!$postcode && trim($pas_address->POSTCODE)) {
+			$postcode = array_shift($lines);
 		}
 
-		$address2 = '';
-		$town = '';
-		$county = '';
-		$postcode = '';
-		if ($country->name == 'United Kingdom') {
-			// We've got a UK address, so we'll see if we can parse the remaining tokens,
-
-			// Instantiate a postcode utility object
-			$postCodeUtility = new PostCodeUtility();
-
-			// Set flags and default values
-			$postCodeFound = false;
-			$postCodeOuter = '';
-			$townFound = false;
-			$countyFound = false;
-
-			// Go through array looking for likely candidates for postcode, town/city and county
-			for ($index = 0; $index < count($addressLines); $index++) {
-				if (!isset($addressLines[$index])) continue;
-
-				// Is element a postcode? (Postcodes may exist in other address lines)
-				if ($postCodeArray = $postCodeUtility->parsePostCode($addressLines[$index])) {
-					if (!$postCodeFound) {
-						$postCodeFound = true;
-						$postcode = $postCodeArray['full'];
-						$postCodeOuter = $postCodeArray['outer'];
-					}
-				} else { // Otherwise a string
-					// Last in (inverted array) is a non-postcode, non-city second address line
-					if ($townFound) {
-						$address2 = trim($addressLines[$index]);
-					}
-
-					// County?
-					if (!$countyFound) {
-						if ($postCodeUtility->isCounty($addressLines[$index])) {
-							$countyFound = true;
-							$county = trim($addressLines[$index]);
-						}
-					}
-
-					// Town?
-					if (!$townFound) {
-						if ($postCodeUtility->isTown($addressLines[$index])) {
-							$townFound = true;
-							$town = trim($addressLines[$index]);
-						}
-					}
-				}
-			}
-
-			// If no town or county found, get them from postcode data if available, otherwise fall back to best guess
-			if ($postCodeFound) {
-				if (!$countyFound) $county = $postCodeUtility->countyForOuterPostCode($postCodeOuter);
-				if (!$townFound) $town = $postCodeUtility->townForOuterPostCode($postCodeOuter);
-			} else {
-				// Number of additional address lines
-				$extraLines = count($addressLines) - 1;
-				if ($extraLines > 1) {
-					$county = trim($addressLines[0]);
-					$town = trim($addressLines[1]);
-				} elseif ($extraLines > 0) {
-					$town = trim($addressLines[0]);
-				}
-			}
-
-			// Dedupe
-			if (isset($county) && isset($town) && $town == $county) {
-				$county = '';
-			}
-		} else {
-			// We've got a non UK address, so we'll just try to store things whereever they fit
-			if (trim($pas_address->POSTCODE)) {
-				$postcode = array_shift($addressLines);
-			} else {
-				$postcode = '';
-			}
-			if (count($addressLines)) {
-				$address2 = array_pop($addressLines);
-			}
-			if (count($addressLines)) {
-				$town = array_pop($addressLines);
-			}
-			if (count($addressLines)) {
-				$county = implode(', ', $addressLines);
-			}
-		}
+		// Now fill in anything else we're missing from the array
+		if (!$address1) $address1 = array_pop($lines);
+		if (!$county) $county = array_shift($lines);
+		if (!$city) $city = array_shift($lines);
+		$address2 = implode("\n", array_reverse($lines)) ?: null;
 
 		// Store data
 		$address->address1 = self::fixCase($address1);
 		$address->address2 = self::fixCase($address2);
-		$address->city = self::fixCase($town);
+		$address->city = self::fixCase($city);
 		$address->county = self::fixCase($county);
 		$address->country_id = $country->id;
 		$address->postcode = strtoupper($postcode);

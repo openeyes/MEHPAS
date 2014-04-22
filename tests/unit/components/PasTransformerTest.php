@@ -75,14 +75,6 @@ class PasTransformerTest extends CDbTestCase
 					'address1' => "Fred\nTest Street",
 				),
 			),
-			array(  // Comma added after number in addr1 (even though this doesn't happen when they're separate...)
-				array(
-					'ADDR1' => '10 TEST STREET',
-				),
-				array(
-					'address1' => '10, Test Street',
-				),
-			),
 			array(  // Combine property name, number and addr1
 				array(
 					'PROPERTY_NAME' => 'FRED',
@@ -105,7 +97,6 @@ class PasTransformerTest extends CDbTestCase
 					'POSTCODE' => 'EC1V 2PD',
 				),
 				array(
-					'city' => 'London',
 					'postcode' => 'EC1V 2PD',
 				),
 			),
@@ -114,7 +105,6 @@ class PasTransformerTest extends CDbTestCase
 					'ADDR3' => 'EC1V 2PD',
 				),
 				array(
-					'city' => 'London',
 					'postcode' => 'EC1V 2PD',
 				),
 			),
@@ -148,6 +138,81 @@ class PasTransformerTest extends CDbTestCase
 				),
 				array(
 					'address_type_id' => AddressType::model()->findByAttributes(array('name' => 'Home'))->id,
+				),
+			),
+			array(
+				array(
+					'ADDR1' => '52 ROSSLYN ROAD',
+					'ADDR2' => 'CHESTER',
+					'ADDR3' => 'HERTFORD',
+					'POSTCODE' => 'WD6 3AH',
+				),
+				array(
+					'address1' => '52 Rosslyn Road',
+					'city' => 'Chester',
+					'county' => 'Hertford',
+					'postcode' => 'WD6 3AH',
+				),
+			),
+			array(
+				array(
+					'ADDR1' => '25 HENRY STREET',
+					'ADDR2' => 'REDHALL LA',
+					'ADDR3' => 'HARROW',
+					'ADDR4' => 'MIDDX',
+				),
+				array(
+					'address1' => '25 Henry Street',
+					'address2' => 'Redhall La',
+					'city' => 'Harrow',
+					'county' => 'Middx',
+				),
+			),
+			array(
+				array(
+					'ADDR1' => '43 MANOR ROAD',
+					'ADDR2' => 'SOUTHALL',
+					'ADDR3' => 'MIDDLESEX',
+					'POSTCODE' => 'UB1 8EG',
+				),
+				array(
+					'address1' => '43 Manor Road',
+					'city' => 'Southall',
+					'county' => 'Middlesex',
+					'postcode' => 'UB1 8EG',
+				),
+			),
+			array(
+				array(
+					'ADDR1' => '11 DANE COURT',
+					'ADDR2' => 'ALDERWOOD COURT',
+					'ADDR3' => 'BRIXTON',
+					'ADDR4' => 'LONDON',
+					'POSTCODE' => 'SW2 3AH',
+				),
+				array(
+					'address1' => '11 Dane Court',
+					'address2' => 'Alderwood Court',
+					'city' => 'Brixton',
+					'county' => 'London',
+					'postcode' => 'SW2 3AH',
+				),
+			),
+			array(
+				array(
+					'ADDR1' => 'FLAT 4',
+					'ADDR2' => '10 FOO STREET',
+					'ADDR3' => 'BAR CRESCENT',
+					'ADDR4' => 'ISLINGTON',
+					'ADDR5' => 'LONDON',
+					'POSTCODE' => 'N4 5AZ',
+				),
+				array(
+					'address1' => 'Flat 4',
+					'address2' => "10 Foo Street\nBar Crescent",
+					'city' => 'Islington',
+					'county' => 'London',
+					'postcode' => 'N4 5AZ',
 				),
 			),
 		);
