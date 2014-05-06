@@ -42,6 +42,8 @@ class PasAssignment extends BaseActiveRecordVersioned
 	 */
 	const PAS_CACHE_TIME = 300;
 
+	static protected $locking_types = array('PAS_Patient', 'PAS_Gp', 'PAS_Practice');
+
 	/**
 	 * Returns the static model of the specified AR class.
 	 * @return PasAssignment the static model class
@@ -80,17 +82,19 @@ class PasAssignment extends BaseActiveRecordVersioned
 		if ($this->internal_id) {
 			return self::model($this->internal_type)->noPas()->findByPk($this->internal_id);
 		} else {
-			return new $this->internal_type;;
+			return new $this->internal_type;
 		}
 	}
 
 	/**
 	 * Get associated external record
+	 *
+	 * @param array $with Related models to fetch at the same time
 	 * @return CActiveRecord
 	 */
-	public function getExternal()
+	public function getExternal(array $with = array())
 	{
-		return self::model($this->external_type)->findByExternalId($this->external_id);
+		return self::model($this->external_type)->with($with)->findByExternalId($this->external_id);
 	}
 
 	/**
@@ -105,10 +109,12 @@ class PasAssignment extends BaseActiveRecordVersioned
 		$record = $this->findByAttributes(array('internal_type' => $internal_type, 'internal_id' => $internal_id));
 		if (!$record) return null;
 
-		$this->lock($record->external_type, $record->external_id);
-		if (!$record->refresh()) {
-			$record->unlock();
-			return null;
+		if (in_array($record->external_type, self::$locking_types)) {
+			$this->lock($record->external_type, $record->external_id);
+			if (!$record->refresh()) {
+				$record->unlock();
+				return null;
+			}
 		}
 
 		return $record;
@@ -123,7 +129,13 @@ class PasAssignment extends BaseActiveRecordVersioned
 	 */
 	public function findByExternal($external_type, $external_id)
 	{
-		$this->lock($external_type, $external_id);
+		if (is_array($external_id)) {
+			$external_id = implode(':', $external_id);
+		}
+
+		if (in_array($external_type, self::$locking_types)) {
+			$this->lock($external_type, $external_id);
+		}
 
 		$record = $this->findByAttributes(array('external_type' => $external_type, 'external_id' => $external_id));
 		if (!$record) {
@@ -154,7 +166,9 @@ class PasAssignment extends BaseActiveRecordVersioned
 	 */
 	public function unlock()
 	{
-		$this->dbConnection->createCommand('SELECT RELEASE_LOCK(?)')->execute(array($this->getLockKey($this->external_type, $this->external_id)));
+		if (in_array($this->external_type, self::$locking_types)) {
+			$this->dbConnection->createCommand('SELECT RELEASE_LOCK(?)')->execute(array($this->getLockKey($this->external_type, $this->external_id)));
+		}
 	}
 
 	protected function lock($external_type, $external_id)
@@ -167,6 +181,6 @@ class PasAssignment extends BaseActiveRecordVersioned
 
 	protected function getLockKey($external_type, $external_id)
 	{
-		return "openeyes.mehpas.{external_type}:{external_id}";
+		return "openeyes.mehpas.{$external_type}:{$external_id}";
 	}
 }

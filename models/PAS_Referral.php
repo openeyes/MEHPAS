@@ -67,31 +67,19 @@
  * @property string $REF_ORG
  * @property string $RTT
  */
-class PAS_Referral extends MultiActiveRecord
+class PAS_Referral extends PasAssignedEntity
 {
-	/**
-	 * Returns the static model of the specified AR class.
-	 * @return PAS_Referral the static model class
-	 */
-	public static function model($className=__CLASS__)
-	{
-		return parent::model($className);
-	}
-
-	/**
-	 * @return string the associated db connection name
-	 */
-	public function connectionId()
-	{
-		return 'db_pas';
-	}
-
 	/**
 	 * @return string the associated database table name
 	 */
 	public function tableName()
 	{
 		return 'SILVER.OUT040_REFDETS';
+	}
+
+	public function primaryKey()
+	{
+		return 'REFNO';
 	}
 
 	/**
@@ -128,6 +116,9 @@ class PAS_Referral extends MultiActiveRecord
 		// NOTE: you may need to adjust the relation name and the related
 		// class name for the relations automatically generated below.
 		return array(
+			'pas_ref_type' => array(self::BELONGS_TO, 'PAS_ReferralType', array('SRCE_REF' => 'CODE'), 'on' => '"pas_ref_type"."ULNKEY" = \'SREF\''),
+			'patient' => array(self::BELONGS_TO, 'PAS_Patient', 'X_CN'),
+			'pas_rtts' => array(self::HAS_MANY, 'PAS_RTT', 'REF_NO'),
 		);
 	}
 
@@ -186,65 +177,10 @@ class PAS_Referral extends MultiActiveRecord
 	}
 
 	/**
-	 * Retrieves a list of models based on the current search/filter conditions.
-	 * @return CActiveDataProvider the data provider that can return the models based on the search/filter conditions.
+	 * Wrapper function for searching for the referral from the PasAssignment object.
 	 */
-	public function search()
+	public function findByExternalId($id)
 	{
-		// Warning: Please modify the following code to remove attributes that
-		// should not be searched.
-
-		$criteria=new CDbCriteria;
-
-		$criteria->compare('REFNO',$this->REFNO);
-		$criteria->compare('X_CN',$this->X_CN);
-		$criteria->compare('DATEX',$this->DATEX,true);
-		$criteria->compare('TIMEX',$this->TIMEX,true);
-		$criteria->compare('METHOD',$this->METHOD,true);
-		$criteria->compare('DT_REC',$this->DT_REC,true);
-		$criteria->compare('REC_LOC',$this->REC_LOC,true);
-		$criteria->compare('SRCE_REF',$this->SRCE_REF,true);
-		$criteria->compare('S_TYPE',$this->S_TYPE,true);
-		$criteria->compare('SOURCE',$this->SOURCE,true);
-		$criteria->compare('P_TYPE',$this->P_TYPE,true);
-		$criteria->compare('REF_PERS',$this->REF_PERS,true);
-		$criteria->compare('DISCIP',$this->DISCIP,true);
-		$criteria->compare('REASON',$this->REASON,true);
-		$criteria->compare('PRIORITY',$this->PRIORITY,true);
-		$criteria->compare('CANCER',$this->CANCER,true);
-		$criteria->compare('CAN_TYPE',$this->CAN_TYPE,true);
-		$criteria->compare('REF',$this->REF,true);
-		$criteria->compare('REF_TO',$this->REF_TO,true);
-		$criteria->compare('REF_SPEC',$this->REF_SPEC,true);
-		$criteria->compare('REF_TEXT',$this->REF_TEXT,true);
-		$criteria->compare('CUR_LOC',$this->CUR_LOC,true);
-		$criteria->compare('DIAGTYPE',$this->DIAGTYPE,true);
-		$criteria->compare('DIAGCODE',$this->DIAGCODE,true);
-		$criteria->compare('DIAGTEXT',$this->DIAGTEXT,true);
-		$criteria->compare('DT_CLOSE',$this->DT_CLOSE,true);
-		$criteria->compare('TM_CLOSE',$this->TM_CLOSE,true);
-		$criteria->compare('PC_TYPE',$this->PC_TYPE,true);
-		$criteria->compare('CLS_PERS',$this->CLS_PERS,true);
-		$criteria->compare('CLS_REAS',$this->CLS_REAS,true);
-		$criteria->compare('HDDR_GROUP',$this->HDDR_GROUP,true);
-		$criteria->compare('USED_COUNT',$this->USED_COUNT);
-		$criteria->compare('USRCODET',$this->USRCODET,true);
-		$criteria->compare('USRCODEC_1',$this->USRCODEC_1,true);
-		$criteria->compare('USRCODEC_2',$this->USRCODEC_2,true);
-		$criteria->compare('USRCODEC_3',$this->USRCODEC_3,true);
-		$criteria->compare('USRCODEC_4',$this->USRCODEC_4,true);
-		$criteria->compare('USRCODEC_5',$this->USRCODEC_5,true);
-		$criteria->compare('USRCODEC_6',$this->USRCODEC_6,true);
-		$criteria->compare('USRCODEC_7',$this->USRCODEC_7,true);
-		$criteria->compare('USRCODEC_8',$this->USRCODEC_8,true);
-		$criteria->compare('USRCODEC_9',$this->USRCODEC_9,true);
-		$criteria->compare('USRCODEC_10',$this->USRCODEC_10,true);
-		$criteria->compare('REF_ORG',$this->REF_ORG,true);
-		$criteria->compare('RTT',$this->RTT,true);
-
-		return new CActiveDataProvider(get_class($this), array(
-				'criteria'=>$criteria,
-		));
+		return $this->findByPk($id);
 	}
-
 }

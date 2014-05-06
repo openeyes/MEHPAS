@@ -18,21 +18,37 @@
  */
 
 /**
- * This is the model class for table "SILVER.ENV030_LOCDETS".
+ * This is the model class for table "SILVER.OUT060_RTT".
  *
- * The followings are the available columns in table 'SILVER.ENV030_LOCDETS':
- * @property string $OBJ_TYPE
- * @property string $OBJ_LOC
- * @property string $DATE_FR
+ * The followings are the available columns in table 'SILVER.OUT060_RTT':
+ * @property string $REF_NO
+ * @property string $SEQ
+ * @property string $X_CN
+ * @property string $CLST_DT
+ * @property string $CLED_DT
+ * @property string $BR_DT
+ * @property string $REAS
+ * @property string $STATUS
+ * @property string $CMNTS
+ * @property string $HDDR_GROUP
+ * @property string $RTT_ID
+ * @property string $CS_STAT
+ * @property string $P_START
+ * @property string $P_END
+ * @property string $P_REAS
+ * @property string $P_TEXT
+ * @property string $RTT_ORG
  */
-class PAS_Practice extends PasAssignedEntity
+class PAS_RTT extends PasAssignedEntity
 {
+	private static $ACTIVE_STATUS_CODES = array('O');
+
 	/**
 	 * @return string the associated database table name
 	 */
 	public function tableName()
 	{
-		return 'SILVER.ENV030_LOCDETS';
+		return 'SILVER.OUT060_RTT';
 	}
 
 	/**
@@ -40,7 +56,7 @@ class PAS_Practice extends PasAssignedEntity
 	 */
 	public function primaryKey()
 	{
-		return array('OBJ_TYPE','OBJ_LOC','DATE_FR');
+		return array('REF_NO','SEQ');
 	}
 
 	/**
@@ -50,7 +66,9 @@ class PAS_Practice extends PasAssignedEntity
 	{
 		// NOTE: you should only define rules for those attributes that
 		// will receive user inputs.
-		return array();
+		return array(
+			array('REF_NO, SEQ, CLST_DT, BR_DT, STATUS', 'safe')
+		);
 	}
 
 	/**
@@ -60,7 +78,8 @@ class PAS_Practice extends PasAssignedEntity
 	{
 		// NOTE: you may need to adjust the relation name and the related
 		// class name for the relations automatically generated below.
-		return array();
+		return array(
+		);
 	}
 
 	/**
@@ -68,24 +87,8 @@ class PAS_Practice extends PasAssignedEntity
 	 */
 	public function attributeLabels()
 	{
-		return array();
-	}
-
-	/**
-	 * Find Practice by external ID (obj_loc)
-	 * Table has no primary key, so we need to fetch the record with the most recent date_fr and
-	 * exclude records with a date_to < today
-	 * @param unknown_type $id
-	 */
-	public function findByExternalId($id)
-	{
-		return $this->find(array(
-				'condition' => 'OBJ_LOC = :practice_id AND OBJ_TYPE = \'SURG\' AND ("DATE_TO" IS NULL OR "DATE_TO" >= SYSDATE) AND ("DATE_FR" IS NULL OR "DATE_FR" <= SYSDATE)',
-				'order' => 'DATE_FR DESC',
-				'params' => array(
-						':practice_id' => $id
-				),
-		));
+		return array(
+		);
 	}
 
 	/**
@@ -104,4 +107,24 @@ class PAS_Practice extends PasAssignedEntity
 		));
 	}
 
+	/**
+	 * Wrapper function for searching for the referral from the PasAssignment object.
+	 * NOTE for RTT we expect an arrray of column names and values for this id
+	 */
+	public function findByExternalId($id)
+	{
+		if (!is_array($id)) {
+			$keys = self::primaryKey();
+			foreach (explode(':', $id) as $i => $v) {
+				$aid[$keys[$i]] = $v;
+			}
+			$id = $aid;
+		}
+		return $this->findByPk($id);
+	}
+
+	public function isActive()
+	{
+		return in_array($this->STATUS, self::$ACTIVE_STATUS_CODES);
+	}
 }

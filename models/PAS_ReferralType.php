@@ -58,6 +58,14 @@ class PAS_ReferralType extends MultiActiveRecord
 	}
 
 	/**
+	 * @return array primary key for the table
+	 */
+	public function primaryKey()
+	{
+		return array('CODE','ULNKEY');
+	}
+
+	/**
 	 * @return array validation rules for model attributes.
 	 */
 	public function rules()

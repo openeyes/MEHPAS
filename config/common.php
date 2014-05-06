@@ -80,7 +80,7 @@ return array(
 			//'connectionString' => 'oci:dbname=remotename:1521/database',
 			//'username' => 'root',
 			//'password' => '',
-			'schemaCachingDuration' => 300,
+			'schemaCachingDuration' => 86400,
 			// Make oracle default date format the same as MySQL (default is DD-MMM-YY)
 			'initSQLs' => array(
 				'ALTER SESSION SET NLS_DATE_FORMAT = \'YYYY-MM-DD\'',
@@ -91,6 +91,7 @@ return array(
 	),
 	'params'=>array(
 		'mehpas_enabled' => false, // Disabled by default
+		'mehpas_importreferrals' => true, // whether referrals should be imported for patients.
 		'mehpas_cache_time' => 300,
 		'mehpas_bad_gps' => array(),
 		'admin_menu' => array(
