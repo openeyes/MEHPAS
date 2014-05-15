@@ -116,7 +116,7 @@ class PasServiceTest extends CDbTestCase
 					'ADDR3' => 'UNITED STATES',
 					'POSTCODE' => '56789',
 					'TEL_NO' => '01234567890',
-//					'ADDR_TYPE' => 'H',
+					'ADDR_TYPE' => 'H',
 				)
 			),
 			ComponentStubGenerator::generate(
@@ -129,7 +129,7 @@ class PasServiceTest extends CDbTestCase
 					'ADDR3' => 'NEW NEW YORK',
 					'ADDR4' => 'UNITED STATES',
 					'POSTCODE' => '12345',
-//					'ADDR_TYPE' => 'C',
+					'ADDR_TYPE' => 'C',
 				)
 			),
 		);
