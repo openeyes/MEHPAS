@@ -514,9 +514,9 @@ class PasService
 				$contact->title = PasTransformer::fixCase($pas_patient->name->TITLE);
 				$contact->first_name = ($pas_patient->name->NAME1) ? PasTransformer::fixCase($pas_patient->name->NAME1) : '(UNKNOWN)';
 				$contact->last_name = PasTransformer::fixCase($pas_patient->name->SURNAME_ID);
-				if ($pas_patient->address) {
+				if ($primary_address = $pas_patient->getPrimaryAddress()) {
 					// Get primary phone from patient's main address
-					$contact->primary_phone = $pas_patient->address->TEL_NO;
+					$contact->primary_phone = $primary_address->TEL_NO;
 				}
 				if (!$contact->save()) {
 					throw new CException('Cannot save patient contact: '.print_r($contact->getErrors(),true));
