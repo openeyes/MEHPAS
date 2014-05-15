@@ -113,7 +113,7 @@ class PasTransformerTest extends CDbTestCase
 					'ADDR2' => 'CANADA',
 				),
 				array(
-					'country_id' => Country::model()->findByAttributes(array('name' => 'Canada'))->id,
+					'country' => 'Canada',
 				),
 			),
 			array(  // Non-uk country line extraction
@@ -129,7 +129,7 @@ class PasTransformerTest extends CDbTestCase
 					'address2' => 'Addr2',
 					'city' => 'Addr3',
 					'county' => 'Addr4',
-					'country_id' => Country::model()->findByAttributes(array('name' => 'Canada'))->id,
+					'country' => 'Canada',
 				),
 			),
 			array(  // Address type lookup
@@ -137,7 +137,7 @@ class PasTransformerTest extends CDbTestCase
 					'ADDR_TYPE' => 'H',
 				),
 				array(
-					'address_type_id' => AddressType::model()->findByAttributes(array('name' => 'Home'))->id,
+					'address_type' => 'Home',
 				),
 			),
 			array(
@@ -243,8 +243,8 @@ class PasTransformerTest extends CDbTestCase
 			'city' => '',
 			'county' => '',
 			'postcode' => '',
-			'country_id' => Country::model()->findByAttributes(array('name' => 'United Kingdom'))->id,
-			'address_type_id' => null,
+			'country' => 'United Kingdom',
+			'address_type' => null,
 			'date_start' => '',
 			'date_end' => null,
 			'id' => null,
@@ -255,6 +255,12 @@ class PasTransformerTest extends CDbTestCase
 			'created_user_id' => '1',
 			'created_date' => '1900-01-01 00:00:00',
 		);
+
+		$output["country_id"] = Country::model()->findByAttributes(array('name' => $output["country"]))->id;
+		unset($output["country"]);
+
+		$output["address_type_id"] = $output["address_type"] ? AddressType::model()->findByAttributes(array('name' => $output["address_type"]))->id : null;
+		unset($output["address_type"]);
 
 		$pas_address = ComponentStubGenerator::generate('PAS_PatientAddress', $input);
 		$address = new Address;
