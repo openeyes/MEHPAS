@@ -125,7 +125,14 @@ class PasService
 					if ($pas_gp->ADD_NAM) {
 						$address1[] = $this->fixCase(trim($pas_gp->ADD_NAM));
 					}
-					$address1[] = $this->fixCase(trim($pas_gp->ADD_NUM . ' ' . $pas_gp->ADD_ST));
+					$address_line = $this->fixCase(trim($pas_gp->ADD_NUM . ' ' . $pas_gp->ADD_ST));
+					if (strstr($address_line,',')) {
+						foreach (explode(',',$address_line) as $address_line_part) {
+							$address1[] = $this->fixCase(trim($address_line_part));
+						}
+					} else {
+						$address1[] = $address_line;
+					}
 					$address1 = implode("\n",$address1);
 					$address2 = $this->fixCase($pas_gp->ADD_DIS);
 					$city = $this->fixCase($pas_gp->ADD_TWN);
@@ -334,7 +341,14 @@ class PasService
 					if ($pas_practice->ADD_NAM) {
 						$address1[] = $this->fixCase(trim($pas_practice->ADD_NAM));
 					}
-					$address1[] = $this->fixCase(trim($pas_practice->ADD_NUM . ' ' . $pas_practice->ADD_ST));
+					$address_line = $this->fixCase(trim($pas_practice->ADD_NUM . ' ' . $pas_practice->ADD_ST));
+					if (strstr($address_line,',')) {
+						foreach (explode(',',$address_line) as $address_line_part) {
+							$address1[] = $this->fixCase(trim($address_line_part));
+						}
+					} else {
+						$address1[] = $address_line;
+					}
 					$address1 = implode("\n",$address1);
 					$address2 = $this->fixCase($pas_practice->ADD_DIS);
 					$city = $this->fixCase($pas_practice->ADD_TWN);
@@ -914,11 +928,11 @@ class PasService
 			$assignment->unlock();
 
 			$old_assignment = $this->assign->findByInternal('Patient', $patient->id);
-			if ($old_assignment) {  // Not a problem if missing, another process might have deleted it
+			if ($old_assignment) {	// Not a problem if missing, another process might have deleted it
 				$this->updatePatientFromPas($patient, $old_assignment);
 
 				if (!$old_assignment->missing_from_pas) {
-					throw new Exception("Duplicate patient in PAS?  Patient ID: {$patient->id}, rm_patient_nos: {$old_assignment->external_id}, {$assignment->external_id}");
+					throw new Exception("Duplicate patient in PAS?	Patient ID: {$patient->id}, rm_patient_nos: {$old_assignment->external_id}, {$assignment->external_id}");
 				}
 
 				Yii::app()->user->setFlash('warning.pas_record_missing', null);
