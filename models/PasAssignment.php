@@ -35,7 +35,7 @@
  * @property Patient $patient
  * @property PAS_Patient $pas_patient
  */
-class PasAssignment extends BaseActiveRecordVersioned
+class PasAssignment extends BaseActiveRecord
 {
 	/**
 	 * Default time (in seconds) before cached PAS details are considered stale
