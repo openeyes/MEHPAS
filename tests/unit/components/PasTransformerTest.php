@@ -215,6 +215,33 @@ class PasTransformerTest extends CDbTestCase
 					'postcode' => 'N4 5AZ',
 				),
 			),
+			// Odd postcode
+			array(
+				array(
+					'ADDR1' => '42 FOO STREET',
+					'POSTCODE' => 'BLERGH ARGH 123',
+				),
+				array(
+					'address1' => '42 Foo Street',
+					'postcode' => 'BLERGH ARG',
+				),
+			),
+			// County in the postcode field
+			array(
+				array(
+					'ADDR1' => '11 SOME STREET',
+					'ADDR2' => 'SOME OTHER BIT OF AN ADDRESS',
+					'ADDR3' => 'CANTERBURY',
+					'POSTCODE' => 'KENT'
+				),
+				array(
+					'address1' => '11 Some Street',
+					'address2' => 'Some Other Bit Of An Address',
+					'city' => 'Canterbury',
+					'county' => 'Kent',
+					'postcode' => 'KENT',
+				),
+			),
 		);
 	}
 

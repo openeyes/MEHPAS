@@ -116,8 +116,9 @@ class PasTransformer
 		if (!$country) $country = Country::model()->findByAttributes(array('name' => 'United Kingdom'));
 
 		// If we didn't recognise a postcode (eg foreign country), trust the PAS postcode entry
-		if (!$postcode && trim($pas_address->POSTCODE)) {
-			$postcode = array_shift($lines);
+		if (!$postcode && ($pas_postcode = trim($pas_address->POSTCODE))) {
+			$postcode = substr($pas_postcode, 0, 10);
+			if (($i = array_search($pas_postcode, $lines)) !== false) unset($lines[$i]);
 		}
 
 		// Now fill in anything else we're missing from the array
