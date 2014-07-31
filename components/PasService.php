@@ -977,7 +977,9 @@ class PasService
 					throw new Exception("Duplicate patient in PAS?	Patient ID: {$patient->id}, rm_patient_nos: {$old_assignment->external_id}, {$assignment->external_id}");
 				}
 
-				Yii::app()->user->setFlash('warning.pas_record_missing', null);
+				if (Yii::app() instanceof CWebApplication) {
+					Yii::app()->user->setFlash('warning.pas_record_missing', null);
+				}
 
 				$old_assignment->delete();
 				$old_assignment->unlock();
