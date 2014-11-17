@@ -140,7 +140,6 @@ class PAS_Patient extends PasAssignedEntity
 						// DATE_FROM is the tiebreaker
 						'order' => 'DATE_FROM DESC',
 						// Exclude expired and future gps
-						'condition' => '("PatientGp"."DATE_TO" IS NULL OR "PatientGp"."DATE_TO" >= SYSDATE) AND ("PatientGp"."DATE_FROM" IS NULL OR "PatientGp"."DATE_FROM" <= SYSDATE)',
 				),
 				'PatientReferrals' => array(self::HAS_MANY, 'PAS_Referral', 'X_CN'),
 		);
@@ -215,6 +214,15 @@ class PAS_Patient extends PasAssignedEntity
 		return new CActiveDataProvider(get_class($this), array(
 				'criteria' => $criteria,
 		));
+	}
+
+	public function afterFind()
+	{
+		if ($this->PatientGp && $this->PatientGp->DATE_TO <= date('Y-m-d H:i:s')) {
+			$this->PatientGp = null;
+		}
+
+		return parent::afterFind();
 	}
 
 	/**
