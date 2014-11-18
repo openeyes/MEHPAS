@@ -141,6 +141,9 @@ class PAS_Patient extends PasAssignedEntity
 						'order' => 'DATE_FROM DESC',
 						// Exclude expired and future gps
 				),
+				'PatientGps' => array(self::HAS_MANY, 'PAS_PatientGps', 'RM_PATIENT_NO',
+					'order' => 'DATE_FROM DESC',
+				),
 				'PatientReferrals' => array(self::HAS_MANY, 'PAS_Referral', 'X_CN'),
 		);
 	}
@@ -218,8 +221,13 @@ class PAS_Patient extends PasAssignedEntity
 
 	public function afterFind()
 	{
-		if ($this->PatientGp && $this->PatientGp->DATE_TO <= date('Y-m-d H:i:s')) {
-			$this->PatientGp = null;
+		$this->PatientGp = null;
+
+		foreach ($this->PatientGps as $patient_gp) {
+			if ($patient_gp->DATE_TO === null or strtotime($patient_gp->DATE_TO) > time()) {
+				$this->PatientGp = $patient_gp;
+				break;
+			}
 		}
 
 		return parent::afterFind();
