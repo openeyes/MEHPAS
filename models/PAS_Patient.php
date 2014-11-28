@@ -126,7 +126,7 @@ class PAS_Patient extends PasAssignedEntity
 				'name' => array(self::HAS_ONE, 'PAS_PatientSurname', 'RM_PATIENT_NO', 'on' => '"name"."SURNAME_TYPE" = \'NO\''),
 				'numbers' => array(self::HAS_MANY, 'PAS_PatientNumber', 'RM_PATIENT_NO'),
 				'nhs_number' => array(self::HAS_ONE, 'PAS_PatientNumber', 'RM_PATIENT_NO', 'on' => '"nhs_number"."NUM_ID_TYPE" = \'NHS\''),
-				'hos_number' => array(self::HAS_ONE, 'PAS_PatientNumber', 'RM_PATIENT_NO', 'on' => 'REGEXP_LIKE("hos_number"."NUM_ID_TYPE", \'[[:digit:]]\')'),
+				'hos_number' => array(self::HAS_ONE, 'PAS_PatientNumber', 'RM_PATIENT_NO', 'on' => 'REGEXP_LIKE("hos_number"."NUM_ID_TYPE", \'[[:digit:]]\') and "hos_number"."NUM_ID_TYPE" != \'5\''),
 				'case_notes' => array(self::HAS_MANY, 'PAS_CaseNote', 'X_CN', 'on' => "REGEXP_LIKE(ngroup, '[[:digit:]]')"),
 				'addresses' => array(self::HAS_MANY, 'PAS_PatientAddress', 'RM_PATIENT_NO',
 						// Address preference is: Home > Correspond > other, and then DATE_START is the tiebreaker
