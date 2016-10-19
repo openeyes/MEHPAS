@@ -301,7 +301,13 @@ class PasService
 				Yii::log("Pulling data from PAS for Practice: Practice->id: {$practice->id}, PasAssignment->id: {$assignment->id}, PasAssignment->external_id: {$assignment->external_id}", 'trace');
 				if (!$assignment->external_id) {
 					// Without an external ID we have no way of looking up the practice in PAS
-					throw new CException('Practice assignment has no external ID');
+
+					//@TODO: remove the following commented out line 
+					//throw new CException('Practice assignment has no external ID');
+					
+					Yii::log("Practice assignment(id:{$assignment->id}) has no external ID", CLogger::LEVEL_WARNING, 'PAS.practice.update');
+
+					return null;
 				}
 				if ($pas_practice = $assignment->external) {
 					Yii::log('Found Pracice in PAS', 'trace');
