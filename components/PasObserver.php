@@ -144,7 +144,10 @@ class PasObserver
 		} else {
 			$data['nhs_num'] = $params['patient']->nhs_num;
 		}
-		
+
+		$defaults = array('pageSize' => CPagination::DEFAULT_PAGE_SIZE, 'currentPage' => 1);
+		$params['params'] = is_array($params['params']) ? array_merge($defaults, $params['params']) : $defaults;
+
 		PasService::load()->search($data, $params['params']['pageSize'], $params['params']['currentPage']);
 	}
 
