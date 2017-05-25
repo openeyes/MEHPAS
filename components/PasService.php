@@ -857,7 +857,7 @@ class PasService
 	public function search($data, $num_results = 20, $page = 1)
 	{
 		if (!$this->isAvailable()) return;
-
+		
 		try {
 			Yii::log('Searching PAS', 'trace');
 
@@ -999,7 +999,7 @@ class PasService
 		}
 
 		if ($assignment->isStale()) {
-			$patient = $assignment->internal;
+			$patient = $assignment->getInternal();
 			$new = $patient->isNewRecord;
 			$this->updatePatientFromPas($patient, $assignment);
 			if ($new && Yii::app()->params['mehpas_legacy_letters']) {
