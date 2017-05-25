@@ -144,7 +144,7 @@ class PasObserver
 		} else {
 			$data['nhs_num'] = $params['patient']->nhs_num;
 		}
-
+		
 		PasService::load()->search($data, $params['params']['pageSize'], $params['params']['currentPage']);
 	}
 
