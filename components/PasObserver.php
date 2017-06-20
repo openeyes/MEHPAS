@@ -126,8 +126,11 @@ class PasObserver
 			if (get_class(Yii::app()) == 'CConsoleApplication') {
 				echo "Warning: unable to update practice $practice->code from PAS\n";
 			} else {
-				Yii::app()->getController()->render('//error/errorPAS');
-				Yii::app()->end();
+                $message = "Warning: unable to update practice $practice->code from PAS";
+                Yii::app()->user->setFlash('warning.pas_unavailable', $message);
+
+//				Yii::app()->getController()->render('//error/errorPAS');
+//				Yii::app()->end();
 			}
 		}
 	}
