@@ -502,6 +502,37 @@ class PasService
 
 			if (($pas_patient = $assignment->getExternal($with))) {
 				Yii::log("Found patient in PAS", 'trace');
+
+\OELog::log("----------------------------------------------> PAS DEBUG <------------------------------------------");
+
+\OELog::log("----------------------------------------------> Class: " . get_class($pas_patient));
+\OELog::log("----------------------------------------------> PAS_Patient attributes: " . print_r($pas_patient->attributes, true));
+
+                ob_start();
+                var_dump( $pas_patient->DATE_OF_BIRTH );
+                $contents = ob_get_contents();
+                ob_end_clean();
+
+\OELog::log("----------------------------------------------> PAS_Patient DATE_OF_BIRTH var_dump: " . $contents);
+
+\OELog::log("----------------------------------------------> Direct PAS query <-----------------------------------");
+                $sql = "
+                    SELECT *
+                    FROM SILVER.PATIENTS p
+                    WHERE p.RM_PATIENT_NO = " .(int)$assignment->external_id;
+
+\OELog::log("------------------------------> PAS direct query SQL: " . $sql);
+
+                $command = Yii::app()->db_pas->createCommand($sql);
+                $p_results = $command->queryAll();
+
+                ob_start();
+                var_dump( $p_results );
+                $contents = ob_get_contents();
+                ob_end_clean();
+
+\OELog::log("---------------------------------------------->PAS direct query var_dump: " . $contents);
+
 				$patient_attrs = array(
 						'gender' => $pas_patient->SEX,
 						'dob' => $pas_patient->DATE_OF_BIRTH,
